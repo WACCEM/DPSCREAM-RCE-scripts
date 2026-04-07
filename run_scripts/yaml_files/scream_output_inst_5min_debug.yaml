@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+Averaging Type: Instant
+Max Snapshots Per File: 12
+filename_prefix: ${CASE}.hist
+horiz_remap_file: "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/DPSCREAM_RCE_dx1km_600x600km_to_PINACLES_YX_dx1km_600x600km_conserve.nc"
+Fields:
+  Physics PG2:
+    Field Names:
+    - LiqWaterPath
+    - pbl_height
+    - T_2m
+output_control:
+  Frequency: 5
+  frequency_units: nmins

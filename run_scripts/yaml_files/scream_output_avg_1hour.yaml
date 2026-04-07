@@ -1,0 +1,118 @@
+%YAML 1.1
+---
+averaging_type: average
+max_snapshots_per_file: 100000
+filename_prefix: ${CASE}.fullfield
+fields:
+  physics_pg2:
+    field_names:
+    - z_mid
+    - p_mid
+    # HOMME
+    - ps
+    - omega
+    # SHOC
+    - cldfrac_liq
+    - eddy_diff_mom
+    - sgs_buoy_flux
+    - tke
+    - inv_qc_relvar
+    - pbl_height
+    # CLD
+    - cldfrac_ice
+    - cldfrac_tot
+    - cldfrac_tot_for_analysis
+    # P3
+    - bm
+    - nc
+    - ni
+    - nr
+    - qi
+    - qm
+    - qr
+    - T_prev_micro_step
+    - qv_prev_micro_step
+    - eff_radius_qc
+    - eff_radius_qi
+    - eff_radius_qr
+    - micro_liq_ice_exchange
+    - micro_vap_ice_exchange
+    - micro_vap_liq_exchange
+    - precip_liq_surf_mass_flux
+    - precip_ice_surf_mass_flux
+    - precip_total_surf_mass_flux
+    # SHOC + HOMME
+    - U
+    - V
+    # SHOC + P3
+    - qc
+    - qv
+    # SHOC + P3 + RRTMGP + HOMME
+    - T_mid
+    # RRTMGP
+    - rad_heating_pdel
+    - sfc_flux_lw_dn
+    - sfc_flux_sw_net
+    - ShortwaveCloudForcing
+    - LongwaveCloudForcing
+    - LiqWaterPath
+    - IceWaterPath
+    - RainWaterPath
+    - RimeWaterPath
+    - VapWaterPath
+    - ZonalVapFlux
+    - MeridionalVapFlux
+    - SW_flux_up_at_model_top
+    - SW_flux_dn_at_model_top
+    - LW_flux_up_at_model_top
+    - SW_flux_dn_at_model_bot
+    - SW_flux_up_at_model_bot
+    - LW_flux_dn_at_model_bot
+    - LW_flux_up_at_model_bot
+    - SW_clrsky_flux_up_at_model_top
+    - LW_clrsky_flux_up_at_model_top
+    - SW_clrsky_flux_dn_at_model_bot
+    - SW_clrsky_flux_up_at_model_bot
+    - LW_clrsky_flux_dn_at_model_bot
+    - LW_clrsky_flux_up_at_model_bot
+    # diag
+    - PotentialTemperature
+    - LiqPotentialTemperature
+    - DryStaticEnergy
+    - RelativeHumidity
+    - surface_upward_latent_heat_flux
+    # coupler
+    - surf_radiative_T
+    - T_2m
+    - qv_2m
+    - wind_speed_10m
+    - surf_mom_flux
+    - surf_sens_flux
+    - surf_evap
+    # Process rates
+    - shoc_T_mid_tend
+    - p3_T_mid_tend
+    - rrtmgp_T_mid_tend
+    - shoc_qv_tend
+    - p3_qv_tend
+    - homme_T_mid_tend
+    - homme_qv_tend
+    # Select level output
+    - PotentialTemperature_at_700hPa
+    - PotentialTemperature_at_1000hPa
+    - omega_at_500hPa
+    - RelativeHumidity_at_700hPa
+    - SeaLevelPressure
+    # ADD SHOC DIAGS (must set ./atmchange extra_shoc_diags=true)
+    - shoc_mix_horiz_avg
+    - wthl_sec_horiz_avg
+    - wqw_sec_horiz_avg
+    - qw_sec_horiz_avg
+    - thl_sec_horiz_avg
+    - uw_sec_horiz_avg
+    - vw_sec_horiz_avg
+    - w3_horiz_avg
+    - w_variance_horiz_avg    
+output_control:
+  frequency: 1
+  frequency_units: nhours

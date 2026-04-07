@@ -1,0 +1,16 @@
+%YAML 1.1
+---
+Averaging Type: Instant
+Max Snapshots Per File: 12
+filename_prefix: ${CASE}.hist
+Fields:
+  Physics PG2:
+    Field Names:
+    - LiqWaterPath
+    - pbl_height
+    - T_2m
+    - U_at_10m_above_surface
+    - V_at_10m_above_surface
+output_control:
+  Frequency: 5
+  frequency_units: nmins

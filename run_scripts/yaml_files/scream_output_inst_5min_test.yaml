@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+Averaging Type: Instant
+Max Snapshots Per File: 12
+filename_prefix: ${CASE}.hist
+horiz_remap_file: "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM/remap/mapping_dpxx_x600000m_y600000m_nex200_ney200_to_unstruct_15000pts.20260313.nc"
+Fields:
+  Physics PG2:
+    Field Names:
+    - LiqWaterPath
+    - pbl_height
+    - T_2m
+output_control:
+  Frequency: 5
+  frequency_units: nmins
