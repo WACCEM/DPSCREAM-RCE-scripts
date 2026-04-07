@@ -59,7 +59,7 @@ DP-SCREAM/
 
 ---
 
-## Usage
+## Simulations
 
 ### Running Simulations
 
@@ -72,6 +72,110 @@ sbatch run_scripts/run_gpu_dpxx_scream_RCE_dx1km.sh
 ```
 
 See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
+
+### output variables
+
+Output frequency: **5 min instantaneous snapshots** (`scream_new_output_inst_5min.yaml`).
+
+| Variable | Description | Source |
+|----------|-------------|--------|
+| `z_mid` | Height at layer midpoints | Dynamics |
+| `p_mid` | Pressure at layer midpoints | Dynamics |
+| `ps` | Surface pressure | HOMME |
+| `omega` | Vertical pressure velocity | HOMME |
+| `cldfrac_liq` | Liquid cloud fraction | SHOC |
+| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC |
+| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC |
+| `tke` | Turbulent kinetic energy | SHOC |
+| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC |
+| `pbl_height` | Planetary boundary layer height | SHOC |
+| `cldfrac_ice` | Ice cloud fraction | CLD |
+| `cldfrac_tot_for_analysis` | Total cloud fraction (for analysis) | CLD |
+| `bm` | Ice rime volume mixing ratio | P3 |
+| `nc` | Cloud droplet number concentration | P3 |
+| `ni` | Cloud ice number concentration | P3 |
+| `nr` | Rain drop number concentration | P3 |
+| `qi` | Cloud ice mixing ratio | P3 |
+| `qm` | Ice rime mass mixing ratio | P3 |
+| `qr` | Rain mixing ratio | P3 |
+| `U` | Zonal wind | SHOC / HOMME |
+| `V` | Meridional wind | SHOC / HOMME |
+| `qc` | Cloud liquid water mixing ratio | SHOC / P3 |
+| `qv` | Water vapour mixing ratio | SHOC / P3 |
+| `T_mid` | Air temperature at layer midpoints | SHOC / P3 / RRTMGP / HOMME |
+| `LiqWaterPath` | Vertically integrated liquid water path | RRTMGP |
+| `IceWaterPath` | Vertically integrated ice water path | RRTMGP |
+| `RainWaterPath` | Vertically integrated rain water path | RRTMGP |
+| `RimeWaterPath` | Vertically integrated rime water path | RRTMGP |
+| `VapWaterPath` | Vertically integrated water vapour path | RRTMGP |
+| `PotentialTemperature` | Potential temperature | Diagnostics |
+| `LiqPotentialTemperature` | Liquid-water potential temperature | Diagnostics |
+| `DryStaticEnergy` | Dry static energy | Diagnostics |
+| `RelativeHumidity` | Relative humidity | Diagnostics |
+| `SeaLevelPressure` | Sea-level pressure | Diagnostics |
+| `surf_radiative_T` | Surface radiative temperature | Coupler |
+| `T_2m` | 2-m air temperature | Coupler |
+| `qv_2m` | 2-m water vapour mixing ratio | Coupler |
+| `wind_speed_10m` | 10-m wind speed | Coupler |
+| `U_at_10m_above_surface` | 10-m zonal wind | Coupler |
+| `V_at_10m_above_surface` | 10-m meridional wind | Coupler |
+
+Output frequency: **5 min averages** (`scream_new_output_avg_5min.yaml`).
+
+| Variable | Description | Source |
+|----------|-------------|--------|
+| `z_mid` | Height at layer midpoints | Dynamics |
+| `p_mid` | Pressure at layer midpoints | Dynamics |
+| `ps` | Surface pressure | HOMME |
+| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC |
+| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC |
+| `tke` | Turbulent kinetic energy | SHOC |
+| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC |
+| `pbl_height` | Planetary boundary layer height | SHOC |
+| `micro_liq_ice_exchange` | Microphysics liquid–ice exchange rate | P3 |
+| `micro_vap_ice_exchange` | Microphysics vapour–ice exchange rate | P3 |
+| `micro_vap_liq_exchange` | Microphysics vapour–liquid exchange rate | P3 |
+| `precip_liq_surf_mass_flux` | Surface liquid precipitation mass flux | P3 |
+| `precip_ice_surf_mass_flux` | Surface ice precipitation mass flux | P3 |
+| `precip_total_surf_mass_flux` | Total surface precipitation mass flux | P3 |
+| `rad_heating_pdel` | Radiative heating rate × pressure thickness | RRTMGP |
+| `sfc_flux_lw_dn` | Downwelling longwave flux at surface | RRTMGP |
+| `sfc_flux_sw_net` | Net shortwave flux at surface | RRTMGP |
+| `ShortwaveCloudForcing` | Shortwave cloud radiative effect | RRTMGP |
+| `LongwaveCloudForcing` | Longwave cloud radiative effect | RRTMGP |
+| `ZonalVapFlux` | Zonal column water vapour flux | RRTMGP |
+| `MeridionalVapFlux` | Meridional column water vapour flux | RRTMGP |
+| `SW_flux_up_at_model_top` | Upwelling SW flux at model top | RRTMGP |
+| `SW_flux_dn_at_model_top` | Downwelling SW flux at model top | RRTMGP |
+| `LW_flux_up_at_model_top` | Upwelling LW flux at model top | RRTMGP |
+| `SW_flux_dn_at_model_bot` | Downwelling SW flux at model bottom | RRTMGP |
+| `SW_flux_up_at_model_bot` | Upwelling SW flux at model bottom | RRTMGP |
+| `LW_flux_dn_at_model_bot` | Downwelling LW flux at model bottom | RRTMGP |
+| `LW_flux_up_at_model_bot` | Upwelling LW flux at model bottom | RRTMGP |
+| `SW_clrsky_flux_up_at_model_top` | Clear-sky upwelling SW flux at model top | RRTMGP |
+| `LW_clrsky_flux_up_at_model_top` | Clear-sky upwelling LW flux at model top | RRTMGP |
+| `SW_clrsky_flux_dn_at_model_bot` | Clear-sky downwelling SW flux at model bottom | RRTMGP |
+| `SW_clrsky_flux_up_at_model_bot` | Clear-sky upwelling SW flux at model bottom | RRTMGP |
+| `LW_clrsky_flux_dn_at_model_bot` | Clear-sky downwelling LW flux at model bottom | RRTMGP |
+| `LW_clrsky_flux_up_at_model_bot` | Clear-sky upwelling LW flux at model bottom | RRTMGP |
+| `surface_upward_latent_heat_flux` | Surface upward latent heat flux | Diagnostics |
+| `surf_mom_flux` | Surface momentum flux | Coupler |
+| `surf_sens_flux` | Surface sensible heat flux | Coupler |
+| `surf_evap` | Surface evaporation | Coupler |
+| `shoc_T_mid_tend` | SHOC temperature tendency | Process rates |
+| `p3_T_mid_tend` | P3 temperature tendency | Process rates |
+| `rrtmgp_T_mid_tend` | RRTMGP temperature tendency | Process rates |
+| `shoc_qv_tend` | SHOC water vapour tendency | Process rates |
+| `p3_qv_tend` | P3 water vapour tendency | Process rates |
+| `homme_T_mid_tend` | HOMME temperature tendency | Process rates |
+| `homme_qv_tend` | HOMME water vapour tendency | Process rates |
+| `PotentialTemperature_at_700hPa` | Potential temperature at 700 hPa | Diagnostics |
+| `PotentialTemperature_at_1000hPa` | Potential temperature at 1000 hPa | Diagnostics |
+| `omega_at_500hPa` | Vertical pressure velocity at 500 hPa | Diagnostics |
+| `RelativeHumidity_at_700hPa` | Relative humidity at 700 hPa | Diagnostics |
+| `SeaLevelPressure` | Sea-level pressure | Diagnostics |
+
+
 
 ### Post-Processing
 
