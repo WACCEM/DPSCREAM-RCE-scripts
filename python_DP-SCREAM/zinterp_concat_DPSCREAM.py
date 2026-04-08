@@ -1,12 +1,16 @@
 # %% [markdown]
 # # Concatenate DP-SCREAM Output Variable
 # 
-# This notebook extracts a specified variable from multiple DP-SCREAM history files and concatenates them into a single output file.
+# This notebook extracts a specified variable with both spatial and vertical dimensionsfrom multiple DP-SCREAM history files , then vertically interpolated to a specified height (m), and concatenates them into a single output file for each day.
 # 
 # **Variable:** `LW_flux_up_at_model_top`  
 # **Source:** `scream_cpu_dpxx_RCE_dx1km` simulation run output (AVERAGE, 5-min interval)  
 # **Period:** 2000-01-01-00000 to 2000-01-25-83100
-# 
+# run it on a cpu node with interactive queue
+# salloc --nodes=1 --ntasks=1 --cpus-per-task=32 --time=01:00:00 -A m1867 -q interactive -C cpu
+# module load python
+# conda activate mpas_2025-10
+# python zinterp_concat_DPSCREAM.py
 
 # %%
 import os
@@ -15,6 +19,8 @@ import xarray as xr
 import numpy as np
 import ctypes, ctypes.util
 import cftime
+import sys
+import matplotlib.pyplot as plt #for debugging
 
 # Suppress benign HDF5 "file not found" diagnostics printed to stderr
 _hdf5_lib = ctypes.util.find_library("hdf5")
@@ -24,6 +30,10 @@ if _hdf5_lib:
 import warnings
 warnings.filterwarnings("ignore")
 
+#for parallel processing with dask, in case it found to be beneficial
+#import dask
+# Use threads for parallelism; alternatives include 'processes' or 'distributed'
+#dask.config.set(scheduler='threads', num_workers=32)
 
 # %%
 
@@ -39,9 +49,10 @@ def extract_timestamp(filepath):
 # --- CONFIGURATION ---
 icase      = "scream_cpu_dpxx_RCE_dx1km"
 run_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
-out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
+#out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
+out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 
-varname    = "V_at_10m_above_surface"
+varname    = "qv"
 
 # File naming parameters
 #stats_type = "AVERAGE"
@@ -54,8 +65,11 @@ file_suffix  = ".nc"
 ts_start = "2000-01-01"
 ts_end   = "2000-01-25"
 
+zlev = 200.0 # target height (m) for vertical interpolation
 
+doparallel = True # whether to use dask for parallel processing; if True, make sure to set up dask cluster and client before running the notebook
 # %%
+outvarname = f"{varname}_{int(zlev)}m"
 
 styear = int(ts_start[:4])
 stmonth = int(ts_start[5:7])
@@ -107,7 +121,7 @@ for idct in range(ndays):
     #day_files = [f for f in selected_files if extract_timestamp(f).startswith(day_str)]
 
     print(f"  Found {len(day_files)} files for {day_str}, opening...")
-    
+
     #get time-independent coordinate variables from the first file of the first day, assuming they are the same for all files; this is to avoid repeatedly reading the same coordinate variables from every file for every day, which can be time-consuming
     if(idct == 0):
         ds_first = xr.open_dataset(day_files[0]) if day_files else None
@@ -115,11 +129,11 @@ for idct in range(ndays):
             lat = ds_first['lat'].assign_attrs({'units': 'm'}) if 'lat' in ds_first else None
             lon = ds_first['lon'].assign_attrs({'units': 'm'}) if 'lon' in ds_first else None
             lev = ds_first['lev'] if 'lev' in ds_first else None
+            z_mid = ds_first['z_mid'].isel(time=0, ncol=0, drop=True) if 'z_mid' in ds_first else None
             ds_first.close()
             del ds_first
 
-    # Open and concatenate files for this day
-    ds_day = xr.open_mfdataset(day_files, combine='by_coords', parallel=False)[[varname]] if day_files else None
+    ds_day = xr.open_mfdataset(day_files, combine='by_coords', parallel=doparallel)[[varname]]
 
     # check simulation initial time from the dataset attributes, and compare with the start date of the current day file; this is to verify if the initial time is included in the current day file or not, which is important for deciding whether to add missing value for the initial time or concatenate the time samples from the previous or next day history files
     if(idct == 0):
@@ -139,7 +153,7 @@ for idct in range(ndays):
 
     var_today = ds_day[varname].sel(time=time_on_today) #extract only the target time samples for the current day from the variable data array
 
-    # Insert missing value for the initial time for average history files, or concatenate the time samples from the previous or next day history files; this is likely caused by a discontinuity in the first restart time in the test run "scream_cpu_dpxx_RCE_dx1km" case
+    # For AVERAGE history files, insert missing value for the initial time, or concatenate the time samples from the previous or next day history files; this is likely caused by a discontinuity in the first restart time in the test run "scream_cpu_dpxx_RCE_dx1km" case
     if(stats_type == "AVERAGE" and styear == init_year and stmonth == init_month and stday == init_day and iday == init_day):
         print(f"  Initial time {init_time} matches the start date {ts_start}. Add missing values for the output time corresponding to the initial time.")
         nan_slice = xr.full_like(var_today.isel(time=0), fill_value=np.nan).expand_dims(time=[cftime.DatetimeNoLeap(init_year, init_month, init_day, 0, 0, 0)])
@@ -163,8 +177,6 @@ for idct in range(ndays):
             [xr.DataArray([init_cftime], dims=['time'], coords={'time': [init_cftime]}),
             time_on_today],
             dim='time')
-        
-        
     else:
         print(f"  Initial time {init_time} does not match the start date {ts_start}, no need to add missing value for the initial time.")
         var_today_extended = var_today
@@ -224,7 +236,6 @@ for idct in range(ndays):
     else:
         print(f"  No next day file found, skipping check.")
 
-
     if(var_prevday is not None):
         print(f"  Concatenating {var_prevday.shape[0]} time points from the previous day's file that match the current day {day_str}.")
         var_today_extended = xr.concat([var_prevday, var_today_extended], dim='time')
@@ -241,35 +252,45 @@ for idct in range(ndays):
     # time step appears in both the prev/next-day run file and in the current
     # day's own run files.  np.unique returns sorted indices, so this also
     # handles any out-of-order entries.
-    _, unique_idx = np.unique(time_today_extended.values, return_index=True)
-    if len(unique_idx) < len(time_today_extended):
-        print(f"  WARNING: Removed {len(time_today_extended) - len(unique_idx)} "
-              f"duplicate/out-of-order time step(s) to ensure monotonicity.")
-    time_today_extended = xr.DataArray(
-        time_today_extended.values[unique_idx], dims=['time'])
-    var_today_extended = xr.DataArray(
-        var_today_extended.values[unique_idx],
-        dims=var_today_extended.dims,
-        coords={'time': time_today_extended},
-        attrs=var_today_extended.attrs,
-    )
+    # _, unique_idx = np.unique(time_today_extended.values, return_index=True)
+    # if len(unique_idx) < len(time_today_extended):
+    #     print(f"  WARNING: Removed {len(time_today_extended) - len(unique_idx)} "
+    #             f"duplicate/out-of-order time step(s) to ensure monotonicity.")
+    # time_today_extended = xr.DataArray(
+    #     time_today_extended.values[unique_idx], dims=['time'])
+    # var_today_extended = xr.DataArray(
+    #     var_today_extended.values[unique_idx],
+    #     dims=var_today_extended.dims,
+    #     coords={'time': time_today_extended},
+    #     attrs=var_today_extended.attrs,
+    # )
+    
+    #vertical interpolation to the target height zlev
+    if z_mid is not None and 'lev' in var_today_extended.dims:
+        print(f"  Performing vertical interpolation to target height {zlev} m...")
+        var_today_extended = var_today_extended.interp(lev=zlev, method='linear')
+        var_today_extended = var_today_extended.astype(np.float32)
+        var_today_extended = var_today_extended.assign_attrs({'units': var_today_extended.attrs.get('units', '') + ' (interpolated to z=' + str(zlev) + ' m)'})
+    else:
+        print(f"  No vertical interpolation performed since 'lev' dimension or 'z_mid' variable is not available.") 
+        sys.exit(1)
 
-    ds_vars = {varname: xr.DataArray(var_today_extended.values, dims=var_today_extended.dims, coords={'time': time_today_extended}, attrs=var_today_extended.attrs)}
+    ds_vars = {outvarname: xr.DataArray(var_today_extended.values, dims=var_today_extended.dims, coords={'time': time_today_extended}, attrs=var_today_extended.attrs)}
     if lat is not None:
         ds_vars['lat'] = lat
     if lon is not None:
         ds_vars['lon'] = lon
     if lev is not None:
         ds_vars['lev'] = lev
-    
+
     ds_today_extended = xr.Dataset(ds_vars)
 
     # Save concatenated dataset for this day
-    out_path = os.path.join(out_dir, f"{icase}.{varname}.hist.{stats_type}.{day_str}.nc")
+    out_path = os.path.join(out_dir, f"{icase}.{outvarname}.hist.{stats_type}.{day_str}.nc")
     # Encode time as float64 (double) instead of xarray's default int64 so that
     # ncview and other tools that don't recognise NC_INT64 (type 10) can read it.
     # _FillValue=None suppresses the unwanted _FillValue attribute on the time coordinate.
-    ds_today_extended.to_netcdf(out_path, encoding={'time': {'dtype': 'float64', '_FillValue': None}})
+    ds_today_extended.to_netcdf(out_path, encoding={'time': {'dtype': 'float64', '_FillValue': None}, outvarname: {'dtype': 'float32'}})
     print(f"  Saved concatenated data to {out_path}")
 
     #clean up memory
@@ -290,7 +311,7 @@ if(False):
     ds_check = xr.open_dataset(out_path)
     print("Output file contents:")
     print(ds_check)
-    print(f"\n'{varname}' shape : {ds_check[varname].shape}")
+    print(f"\n'{outvarname}' shape : {ds_check[outvarname].shape}")
     print(f"time range        : {ds_check['time'].values[0]}  to  {ds_check['time'].values[-1]}")
     ds_check.close()
 

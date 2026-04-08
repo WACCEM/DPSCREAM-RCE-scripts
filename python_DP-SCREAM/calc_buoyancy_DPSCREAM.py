@@ -30,9 +30,6 @@ varname    = "LW_flux_up_at_model_top"
 in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases"
           f"/{icase}/processed")
 
-# Output directory (created if it does not already exist)
-out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
-
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
 ts_end   = "2000-01-25"
@@ -42,13 +39,15 @@ ts_end   = "2000-01-25"
 # desired regular Cartesian destination grid.
 remap_method = "patch"
 weightdir  = "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/"
-srcgrid = "DPSCREAM_RCE_dx1km_600x600km"
-dstgrid = "PINACLES_YX_dx1km_600x600km"
-weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
+weightfile = ("DPSCREAM_RCE_dx1km_600x600km_to_PINACLES_YX_dx1km_"
+              "600x600km_"+ remap_method + ".nc")
 
 # Destination grid spacing in metres – used to compute Cartesian x/y
 # cell-centre coordinates (dst_dx/2, 3*dst_dx/2, …) in the regridded output.
-dst_dx = 1500.0 #1,500m for physics grid of the 1km simulation
+dst_dx = 1500.0
+
+# Output directory (created if it does not already exist)
+out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}")
 
 # ---------------------------------------------------------------------------
 # End user configuration
@@ -292,17 +291,17 @@ for infile in infiles:
                             ' ncol grid to regular Cartesian grid'),
         }
     )
-    # ds_regrid['lat'].attrs = {
-    #     'units': 'degrees_north', 'long_name': 'latitude'}
-    # ds_regrid['lon'].attrs = {
-    #     'units': 'degrees_east', 'long_name': 'longitude'}
+    ds_regrid['lat'].attrs = {
+        'units': 'degrees_north', 'long_name': 'latitude'}
+    ds_regrid['lon'].attrs = {
+        'units': 'degrees_east', 'long_name': 'longitude'}
     if lev_vals is not None and vdim == '3D':
         ds_regrid['lev'].attrs = {
             'units': 'mb', 'long_name': 'hybrid level at midpoints'}
 
     regrid_out = os.path.join(
         out_dir,
-        f"{icase}.{varname}.{stats_type}.{dstgrid}.{date_str}.nc")
+        f"{icase}.{varname}.regrid.{stats_type}.{date_str}.nc")
     ds_regrid.to_netcdf(
         regrid_out,
         encoding={varname: {'_FillValue': fill_val, 'dtype': 'float32'}})

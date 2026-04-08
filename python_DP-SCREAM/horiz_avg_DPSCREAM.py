@@ -23,8 +23,8 @@ import xarray as xr
 # User configuration
 # ---------------------------------------------------------------------------
 icase      = "scream_cpu_dpxx_RCE_dx1km"
-stats_type = "AVERAGE"
-varname    = "LW_flux_up_at_model_top"
+stats_type = "INSTANT"
+varname    = "VapWaterPath"
 
 # Variables to process.  Use ["all"] to process every ncol-based variable
 # found in the input file(s).
