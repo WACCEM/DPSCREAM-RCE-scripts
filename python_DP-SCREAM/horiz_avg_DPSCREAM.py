@@ -14,32 +14,45 @@ Output files are written to out_dir:
 # %%
 
 import os
+import sys
 import glob
 import numpy as np
 import xarray as xr
+
+try:
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    # Running interactively: search cwd and the python_DP-SCREAM sub-folder
+    _cwd = os.getcwd()
+    _script_dir = (
+        _cwd if os.path.isfile(os.path.join(_cwd, "check_output_stream.py"))
+        else os.path.join(_cwd, "python_DP-SCREAM")
+    )
+sys.path.insert(0, _script_dir)
+from check_output_stream import get_output_stream
 
 # %%
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
 icase      = "scream_cpu_dpxx_RCE_dx1km"
-stats_type = "INSTANT"
-varname    = "VapWaterPath"
+stats_type = "AVERAGE" # "INSTANT" or "AVERAGE"
 
 # Variables to process.  Use ["all"] to process every ncol-based variable
 # found in the input file(s).
-vartodo = [varname]
+vartodo = ["VapWaterPath","T_mid_200m","LW_flux_up_at_model_top"]
 
 # Input files produced by concat_DPSCREAM.py.
 in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases"
           f"/{icase}/processed")
+# Output directory (created if it does not already exist)
+out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/havg")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
 ts_end   = "2000-01-25"
 
-# Output directory (created if it does not already exist)
-out_dir = in_dir
+
 
 # %%
 
@@ -87,9 +100,6 @@ def find_ncol_vars(ds, vartodo):
 
     return matching, dimarr
 
-# %%
-
-
 
 # %%
 
@@ -112,6 +122,11 @@ def find_ncol_vars(ds, vartodo):
 for vname in vartodo:
     print(f"\n{'='*60}")
     print(f"Processing variable : {vname}")
+    stats_type = get_output_stream(vname)
+    if stats_type == "NONE":
+        print(f"  WARNING: variable '{vname}' not found in either output stream,"
+              " skipping.")
+        continue
 
     infiles = [
         os.path.join(in_dir,
@@ -206,3 +221,5 @@ for vname in vartodo:
 ds.close()
 print(f"\n{'='*60}")
 print("Done.")
+
+# %%
