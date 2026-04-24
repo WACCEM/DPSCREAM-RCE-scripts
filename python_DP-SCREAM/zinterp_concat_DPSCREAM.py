@@ -9,7 +9,7 @@
 # run it on a cpu node with interactive queue
 # salloc --nodes=1 --ntasks=1 --cpus-per-task=32 --time=01:00:00 -A m1867 -q interactive -C cpu
 # module load python
-# conda activate mpas_2025-10
+# conda activate dpscream_analysis  (mpas_2025-10)
 # python zinterp_concat_DPSCREAM.py
 
 # %%

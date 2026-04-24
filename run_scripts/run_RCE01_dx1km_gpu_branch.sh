@@ -30,7 +30,7 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=scream_gpu_dpxx_RCE_dx1km
+export casename=RCE01_dx1km_gpu_branch
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
@@ -63,21 +63,21 @@ export yamlpath=/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/run_scripts/yaml_files
 # - Some cases are small enough to run on debug queues
 # - Setting to true only supported for NERSC and Livermore Computing,
 #   else user will need to modify script to submit to debug queue
-export debug_queue=true
+export debug_queue=false
 
 # Set number of processors to use, should be less than or equal
 #   to the total number of elements in your domain.  Note that if you are running
 #   on pm-gpu you will want to set this to either "4" or "8" if running the standard
 #   domain size and resolution (RCE excluded).
-num_procs=32
+num_procs=64
 # based on the table "supported PECOUNTS", the value for ne30pg2_ne30pg2
 #https://e3sm.atlassian.net/wiki/spaces/DOC/pages/3386015745/How+To+Run+EAMxx+SCREAMv1
 
 stop_option=ndays
-stop_n=1
+stop_n=5
 
 # set walltime
-walltime='00:30:00'
+walltime='02:00:00'
 
 ## SET DOMAIN SIZE AND DYNAMICS RESOLUTION:
 # - Note that these scripts are set to run with dx=dy=3.33 km
@@ -125,7 +125,11 @@ nu_top_dyn=3000.0
 
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
-#-switch to run/not to run CESM scripts  -----------------------------------
+
+refcase="scream_cpu_dpxx_RCE_dx1km"
+refdate="2000-02-17"
+
+#-switches to run/not to run CESM scripts  -----------------------------------
 run_setup=false        #case.setup 
 clean_setup=false
 
@@ -143,7 +147,7 @@ edit_atmconf=false
 
 do_continue_run=TRUE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
-num_resubmit=10
+num_resubmit=15
 #-submit a job
 run_job=true
 
@@ -270,7 +274,12 @@ fi
 
 # Modify the run start and duration parameters for the desired case
 #always edit
-./xmlchange RUN_STARTDATE="$startdate"
+
+./xmlchange RUN_TYPE="branch"
+
+./xmlchange RUN_REFCASE="$refcase"
+
+./xmlchange RUN_REFDATE="$refdate"
 
 ./xmlchange RUN_STARTDATE="$startdate"
 
@@ -344,8 +353,8 @@ if [ "$edit_output" = true ]; then
  # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
  # Note that you can have as many output streams (yaml files) as you want!
 
-    yamlfile1=scream_output_avg_5min.yaml
-    yamlfile2=scream_output_inst_5min.yaml
+    yamlfile1=scream_test_output_avg_1hour.yaml
+    yamlfile2=scream_test_output_inst_1hour.yaml
     #yamlfile2=scream_horiz_avg_output_5min.yaml
 
     # ./atmchange output_yaml_files="./scream_horiz_avg_output_5min.yaml"
@@ -403,6 +412,6 @@ fi
 # Submit the case
 if [ "$run_job" = true ]; then
     
-    ./case.submit --mail-user $submitter_email --mail-type end,fail
+    ./case.submit --mail-user $submitter_email --mail-type all
 
 fi

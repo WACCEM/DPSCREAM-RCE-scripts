@@ -23,12 +23,12 @@ from scipy.sparse import csr_matrix
 # User configuration
 # ---------------------------------------------------------------------------
 icase      = "scream_cpu_dpxx_RCE_dx1km"
-stats_type = "AVERAGE"
-varname    = "LW_flux_up_at_model_top"
+stats_type = "INSTANT"
+varname    = "qv_200m"
 
 # Input files produced by concat_DPSCREAM.py.
-in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases"
-          f"/{icase}/processed")
+#in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
+in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 
 # Output directory (created if it does not already exist)
 out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")

@@ -272,6 +272,67 @@ internally, so this is only needed for interactive use.
 
 ---
 
+## `--mail-type end,fail` in `case.submit` only delivers failure emails — 2026-04-20
+
+### Symptom
+
+`./case.submit --mail-user $submitter_email --mail-type end,fail` is called in the run script, but
+email is only received when a job **fails**; no email arrives when the job **ends successfully**.
+
+### Root Cause
+
+CIME's `env_batch.py` generates one `--mail-type` flag **per type** rather than a single
+comma-separated flag:
+
+```
+# CIME-generated sbatch args:
+sbatch --mail-user you@example.com --mail-type end --mail-type fail ...
+```
+
+SLURM treats multiple `--mail-type` flags as **last-one-wins**, so only `fail` takes effect.
+
+The relevant code in `env_batch.py` (around line 1051):
+```python
+submitargs += " {} {}".format(
+    mail_type_flag,
+    " {} ".format(mail_type_flag).join(mail_type_args),
+    # → "--mail-type end --mail-type fail"   (last flag wins in SLURM)
+)
+```
+
+This can be verified by inspecting the generated batch script — no `#SBATCH --mail-type` line
+appears in `.case.run.sh` because the flags are passed directly to `sbatch` on the command line,
+and SLURM silently honours only the last one.
+
+### Fix
+
+Use `--mail-type all` instead of `--mail-type end,fail`. This passes a single flag that SLURM
+handles correctly:
+
+```bash
+# In the run script:
+./case.submit --mail-user $submitter_email --mail-type all
+```
+
+**Trade-off:** `all` also sends a BEGIN notification when the job starts. If that is unwanted, the
+alternative is to patch `env_batch.py` locally to join types with a comma instead of repeating the
+flag, but that modifies E3SM source code.
+
+The permanent alternative is to set `mail_type` in `~/.cime/config` (see the section above) and
+omit `--mail-type` from the `case.submit` call entirely:
+
+```ini
+[main]
+mail_type=end,fail
+mail_user=Koichi.Sakaguchi@pnnl.gov
+```
+
+CIME reads this value through `cime_config.get("main", "MAIL_TYPE")` and also passes it as a
+comma-separated string to `mail_type.split(",")`, which then hits the same multi-flag generation
+bug. So `~/.cime/config` does **not** work around the issue — use `mail_type=all` there as well.
+
+---
+
 ## `TypeError: expected an Element, not _Element` in `xmlchange` / `xmlquery` — 2026-03-17
 
 ### Symptom
