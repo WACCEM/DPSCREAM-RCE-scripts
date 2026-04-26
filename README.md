@@ -11,9 +11,11 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
 - [Requirements](#requirements)
-- [Usage](#usage)
-  - [Running Simulations](#running-simulations)
+- [Simulations](#simulations)
+  - [Running](#running)
   - [Post-Processing](#post-processing)
+  - [Output](#output)
+  - [Archive](#archive)
 - [Configuration](#configuration)
 - [Contributing](#contributing)
 - [Contact](#contact)
@@ -61,7 +63,7 @@ DP-SCREAM/
 
 ## Simulations
 
-### Running Simulations
+### Running
 
 Job scripts are located in `run_scripts/`. Edit the relevant script for your
 allocation and paths, then submit:
@@ -73,7 +75,25 @@ sbatch run_scripts/run_gpu_dpxx_scream_RCE_dx1km.sh
 
 See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 
-### output variables
+### Post-Processing
+
+```bash
+# Concatenate output files
+python python_DP-SCREAM/concat_DPSCREAM.py
+
+# Horizontal average
+python python_DP-SCREAM/horiz_avg_DPSCREAM.py
+
+# Regrid to unstructured grid
+python python_DP-SCREAM/remap/regrid_dpxx_output.py
+```
+
+Or open the Jupyter notebooks in `python_DP-SCREAM/` for interactive analysis.
+
+---
+
+
+### output
 
 Output frequency: **5 min instantaneous snapshots** (`scream_new_output_inst_5min.yaml`).
 
@@ -176,23 +196,18 @@ Output frequency: **5 min averages** (`scream_new_output_avg_5min.yaml`).
 | `SeaLevelPressure` | Sea-level pressure | Diagnostics |
 
 
+### Archive 
+screen and tmux
 
-### Post-Processing
+If you find screen a bit clunky, you might want to try tmux. It does the exact same thing but handles window resizing better and has a status bar at the bottom so you always know you are inside a virtual session.
 
 ```bash
-# Concatenate output files
-python python_DP-SCREAM/concat_DPSCREAM.py
-
-# Horizontal average
-python python_DP-SCREAM/horiz_avg_DPSCREAM.py
-
-# Regrid to unstructured grid
-python python_DP-SCREAM/remap/regrid_dpxx_output.py
+tmux new -s hpss_transfer  #start a new session named hpss_transfer
+Ctrl+b, then d  #detach from the session
+tmux attach -t hpss_transfer #reattach to the session
 ```
 
-Or open the Jupyter notebooks in `python_DP-SCREAM/` for interactive analysis.
-
----
+HPSS Archive directory: ` /home/projects/m1867/RCE/DP-SCREAM/${casename}`
 
 ## Configuration
 
