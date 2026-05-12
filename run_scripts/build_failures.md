@@ -371,3 +371,61 @@ satisfying the CUDA extended-lambda restriction while keeping the intended
 
 Files 1–2 are in the CIME machine config (persistent for all future cases from this checkout).  
 Files 3–5 are in the E3SM/SCREAM source tree on branch `ksa/uvwinds`.
+
+---
+
+## EAMxx Output YAML File Syntax Change Between v3.0.2 and v3.1.0-alpha
+
+**Date**: 2026-05-12  
+**Older code**: `/global/cfs/cdirs/wcm_code/ksa/E3SM/model/E3SM` (branch `ksa/uvwinds`, based on `v3.0.2`)  
+**Newer code**: `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone` (commit `8426cb31c7`, tag `v3.1.0-alpha-3683-g8426cb31c7`)
+
+### Background
+
+The output YAML files passed to EAMxx via `atmchange output_yaml_files=...` use
+keys that the CIME build script (`eamxx_buildnml.py`) reads directly as Python
+dictionary keys. Between v3.0.2 and v3.1.0-alpha the expected key names changed
+from Title Case with spaces to lowercase with underscores. Using the old-style
+keys with the new code causes a `KeyError` during `case.build` (in
+`do_cime_vars_on_yaml_output_files`).
+
+### Key Name Changes
+
+| Old syntax (v3.0.2) | New syntax (v3.1.0-alpha) |
+|---------------------|--------------------------|
+| `Averaging Type: Average` | `averaging_type: average` |
+| `Averaging Type: Instant` | `averaging_type: instant` |
+| `Max Snapshots Per File: N` | `max_snapshots_per_file: N` |
+| `Fields:` | `fields:` |
+| `Physics PG2:` | `physics_pg2:` |
+| `Field Names:` | `field_names:` |
+| `Frequency: N` (under `output_control`) | `frequency: N` |
+
+The `filename_prefix`, `output_control`, and `frequency_units` keys are
+unchanged between versions.
+
+### Convention for YAML Files in This Repository
+
+YAML files in `run_scripts/yaml_files/` are named to indicate the target version:
+
+- Files **without** a version qualifier (e.g., `scream_output_avg_1hour.yaml`,
+  `scream_test_output_avg_1hour.yaml`) use the **old Title Case syntax** and are
+  intended for the v3.0.2-based code in `/global/cfs/cdirs/wcm_code/ksa/E3SM/model/E3SM`.
+- Files prefixed with `scream_new_` or `scream_test2_` (e.g.,
+  `scream_new_output_avg_5min.yaml`, `scream_test2_output_avg_1hour.yaml`,
+  `scream_test2_output_inst_1hour.yaml`) use the **new lowercase syntax** and are
+  intended for the v3.1.0-alpha code in
+  `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone`.
+
+### Error Triggered by Mismatch
+
+Using old-style `Frequency:` (capital F) with the v3.1.0-alpha `buildnml` produces:
+
+```
+KeyError: 'frequency'
+  File ".../eamxx_buildnml.py", line 1149, in do_cime_vars_on_yaml_output_files
+    freq  = content['output_control']['frequency']
+```
+
+This appears during `case.build` when generating namelists, before any compilation
+begins.

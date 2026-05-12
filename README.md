@@ -75,21 +75,6 @@ sbatch run_scripts/run_gpu_dpxx_scream_RCE_dx1km.sh
 
 See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 
-### Post-Processing
-
-```bash
-# Concatenate output files
-python python_DP-SCREAM/concat_DPSCREAM.py
-
-# Horizontal average
-python python_DP-SCREAM/horiz_avg_DPSCREAM.py
-
-# Regrid to unstructured grid
-python python_DP-SCREAM/remap/regrid_dpxx_output.py
-```
-
-Or open the Jupyter notebooks in `python_DP-SCREAM/` for interactive analysis.
-
 ---
 
 
@@ -195,6 +180,101 @@ Output frequency: **5 min averages** (`scream_new_output_avg_5min.yaml`).
 | `RelativeHumidity_at_700hPa` | Relative humidity at 700 hPa | Diagnostics |
 | `SeaLevelPressure` | Sea-level pressure | Diagnostics |
 
+---
+
+
+## Post-Processing
+
+```bash
+# calculate vertically integrated MSE
+python calc_imse_DPSCREAM.py
+
+# calculate cold pool metrics
+python calc_cp_DPSCREAM.py
+
+# Concatenate (direct) output and/or processed (e.g., imse, cold pools) files
+python python_DP-SCREAM/concat_DPSCREAM.py
+
+# Horizontal average
+python horiz_avg_DPSCREAM.py
+
+# Regrid to a 2D grid specified by the SCRIP format file
+python regrid_DPSCREAM.py
+```
+
+### Derived diagnostics — cold pool (`python_DP-SCREAM/calc_cp_DPSCREAM.py`)
+
+The script `python_DP-SCREAM/calc_cp_DPSCREAM.py` reads the 5-min instantaneous
+snapshots and computes cold pool diagnostics following the PINACLES `CaseRCE.py`
+methodology, adapted for the fully compressible equations used in DP-SCREAM.
+
+#### Buoyancy
+
+Buoyancy is defined via the **Density Potential Temperature**:
+
+$$\theta_\rho = \theta \cdot \frac{1 + (R_v/R_d)\,q_v}{1 + q_v + q_c + q_i + q_r}$$
+
+where $\theta$ is the model potential temperature (`PotentialTemperature`),
+$q_v, q_c, q_i, q_r$ are the water vapour, cloud liquid, cloud ice, and rain
+mixing ratios.  The numerator accounts for the density reduction due to water
+vapour; the denominator accounts for the density increase due to condensate
+loading.
+
+> **Note on `qm` (P3 rime mass):** `qm` is a sub-component of the prognostic
+> ice variable `qi` in the P3 microphysics scheme.  It is *not* added separately
+> to avoid double-counting condensate in $\theta_\rho$.
+
+Unlike PINACLES, which uses an anelastic reference density profile that is
+constant in time and space, DP-SCREAM uses fully compressible dynamics.  The
+**reference profile** is therefore the **area-weighted horizontal mean** of
+$\theta_\rho$ computed at each output time step:
+
+$$\overline{\theta}_\rho(t,k) = \frac{\sum_{\text{col}} \theta_\rho(t,\text{col},k)\,A_{\text{col}}}{\sum_{\text{col}} A_{\text{col}}}$$
+
+The buoyancy perturbation is then:
+
+$$b(t,\text{col},k) = g \,\frac{\theta_\rho(t,\text{col},k) - \overline{\theta}_\rho(t,k)}{\overline{\theta}_\rho(t,k)}$$
+
+> **Precision note:** the dataset fields are stored as `float32`.  Accumulating
+> 160,000 float32 values in the area-weighted mean introduces a ~0.2 K error
+> that biases $b$ by ~0.02 m s⁻².  The script promotes all intermediate
+> computations to `float64` before computing $\overline{\theta}_\rho$.
+
+#### Cold pool detection and diagnostics
+
+A fixed buoyancy threshold $b^* = -0.005\ \text{m s}^{-2}$ is applied
+(same as PINACLES).
+
+1. **Identify cold-pool columns** — a column is a cold-pool column if its
+   lowest model level satisfies $b < b^*$.
+2. **Find the first contiguous sub-threshold layer** — within each qualifying
+   column, all levels with $b < b^*$ are gathered.  Consecutive indices
+   separated by at most 1 level are merged into a single layer, and the bottom
+   (`kbot`) and top (`ktop`) indices of the *first* (surface-rooted) layer are
+   retained.
+3. **Compute the three 2-D diagnostics:**
+
+| Output variable | Formula | Units | Description |
+|-----------------|---------|-------|-------------|
+| `cp_base` | $z(k_\text{bot})$ | m | Height of the cold layer bottom |
+| `cp_depth` | $z(k_\text{top} - k_\text{bot})$ | m | Proxy for cold layer vertical extent; equals $z[k_\text{top}]$ when $k_\text{bot}=0$ |
+| `cp_intensity` | $\sqrt{-2\displaystyle\int_{z_\text{bot}}^{z_\text{top}} b\,dz}$ | m s⁻¹ | Analogous to the velocity acquired by a negatively buoyant parcel over the cold layer depth |
+
+The vertical integral uses the **trapezoidal rule** over the model levels.
+
+Additional output:
+
+| Output variable | Description | Units |
+|-----------------|-------------|-------|
+| `buoy_sfc` | Buoyancy at the lowest model level (~13 m) | m s⁻² |
+| `cp_area_frac` | Area-weighted fraction of cold-pool columns (scalar time series) | 1 |
+
+Physical constants used: $g = 9.80665\ \text{m s}^{-2}$,
+$R_d = 287.05\ \text{J kg}^{-1}\text{K}^{-1}$,
+$R_v = 461.5\ \text{J kg}^{-1}\text{K}^{-1}$.
+
+Output file naming: `{icase}.cp.INSTANT.nmins_x5.{timestamp}.nc`
+
 
 ### Archive 
 screen and tmux
@@ -208,6 +288,38 @@ tmux attach -t hpss_transfer #reattach to the session
 ```
 
 HPSS Archive directory: ` /home/projects/m1867/RCE/DP-SCREAM/${casename}`
+
+#### Previous simulation
+
+Chandru's raw outpus : /pscratch/sd/c/chandru/RCE_DP_SCREAM/scream_dpxx_RCE_300K/run/
+
+```bash
+// global attributes:
+		:case_t0 = "2000-01-01-00000" ;
+		:run_t0 = "2000-01-01-00000" ;
+		:averaging_type = "AVERAGE" ;
+		:averaging_frequency_units = "nhours" ;
+		:averaging_frequency = 1 ;
+		:file_max_storage_type = "num_snapshots" ;
+		:max_snapshots_per_file = 721 ;
+		:fp_precision = "single" ;
+		:case = "scream_dpxx_RCE_300K" ;
+		:source = "E3SM Atmosphere Model (EAMxx)" ;
+		:eamxx_version = "1.0.0" ;
+		:git_version = "8e96857632" ;
+		:hostname = "pm-cpu" ;
+		:username = "chandru" ;
+		:atm_initial_conditions_file = "NONE" ;
+		:topography_file = "NONE" ;
+		:contact = "e3sm-data-support@llnl.gov" ;
+		:institution_id = "E3SM-Project" ;
+		:realm = "atmos" ;
+		:history = "created on Thu Feb 27 22:17:08 2025" ;
+		:Conventions = "CF-1.8" ;
+		:product = "model-output" ;
+}
+```
+Processed by Laura : /pscratch/sd/p/paccini/temp/output_dp_scream/processed_500x500/
 
 ## Configuration
 
