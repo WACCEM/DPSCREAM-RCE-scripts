@@ -7,35 +7,48 @@ Reads concatenated DP-SCREAM output produced by concat_DPSCREAM.py and
 remaps each requested variable from the unstructured ncol grid to a regular
 Cartesian lat/lon grid using a pre-computed ESMF weight file, following the
 same approach as remap/regrid_dpxx_output.py.
+In general, read input files concatenated to daily files by concat_DPSCREAM.py.
 
 Output files are written to out_dir:
   {casename}.{varname}.regrid.{stats_type}.{out_tag}.nc
 """
 # %%
 import os
+import re
 import numpy as np
 import xarray as xr
 import netCDF4 as nc4
 from scipy.sparse import csr_matrix
+import glob
 
 # %%
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "scream_cpu_dpxx_RCE_dx1km"
-stats_type = "INSTANT"
-varname    = "qv_200m"
+icase      = "RCE01_dx1km_gpu_branch"
+varname    = "imse"
 
-# Input files produced by concat_DPSCREAM.py.
-#in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
-in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+# File naming parameters
+stats_type = "INSTANT"
+file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+   #this is used to construct the file name pattern for searching the input files to be concatenated
+   #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
+   #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
+frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct the file name pattern for searching the input files to be concatenated
+
+in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
+#in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/freq_change")
+#in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+
 
 # Output directory (created if it does not already exist)
 out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
-ts_start = "2000-01-01"
-ts_end   = "2000-01-25"
+ts_start = "2000-02-17"
+ts_end   = "2000-04-30"
+
+# %%
 
 # ESMF weight file produced by ESMF_RegridWeightGen.
 # Maps from the unstructured DP-SCREAM source grid (ncol columns) to the
@@ -49,6 +62,8 @@ weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
 # Destination grid spacing in metres – used to compute Cartesian x/y
 # cell-centre coordinates (dst_dx/2, 3*dst_dx/2, …) in the regridded output.
 dst_dx = 1500.0 #1,500m for physics grid of the 1km simulation
+if(dstgrid == "PINACLES_YX_dx1km_600x600km"):
+    dst_dx = 1000.0 #1,000m for PINACLES 1km grid
 
 # ---------------------------------------------------------------------------
 # End user configuration
@@ -64,11 +79,20 @@ end_date   = np.datetime64(f"{edyear:04d}-{edmonth:02d}-{edday:02d}")
 date_range = np.arange(start_date, end_date + np.timedelta64(1, 'D'),
                        dtype='datetime64[D]')
 
-infiles = [
-    os.path.join(in_dir,
-                 f"{icase}.{varname}.hist.{stats_type}.{str(d)}.nc")
-    for d in date_range
-]
+if(file_type == "raw"):
+    file_prefix  = f"{icase}.hist.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
+elif(file_type == "cp"):
+    file_prefix  = f"{icase}.cp.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
+else:
+    file_prefix  = f"{icase}.{varname}.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
+
+
+date_strs = {str(d) for d in date_range}
+infiles = [f for f in sorted(glob.glob(os.path.join(in_dir, f"{file_prefix}*.nc")))
+           if os.path.basename(f)[len(file_prefix):len(file_prefix)+10] in date_strs]
 
 print(f"Period    : {ts_start}  to  {ts_end}")
 print(f"\nFound {len(infiles)} input file(s):")
@@ -189,13 +213,20 @@ file_prefix = f"{icase}.{varname}.hist.{stats_type}."
 # Loop over input files – one output file per input file
 # ---------------------------------------------------------------------------
 for infile in infiles:
-    # Extract the date-stamp from the filename (e.g. "2000-01-01")
-    date_str = os.path.basename(infile)[len(file_prefix):-3]
+    # Extract the YYYY-MM-DD date stamp from the filename using a regex.
+    # This is robust to filenames with extra fields after the date
+    # (e.g. a time-of-day offset like "2000-02-17-03600").
+    _m = re.search(r'(\d{4}-\d{2}-\d{2})', os.path.basename(infile))
+    if _m is None:
+        print(f"  WARNING: cannot find a YYYY-MM-DD date in "
+              f"'{os.path.basename(infile)}', skipping.")
+        continue
+    date_str = _m.group(1)
 
     print(f"\n{'='*60}")
     print(f"Processing file : {infile}  (date: {date_str})")
 
-    ds = xr.open_dataset(infile)
+    ds = xr.open_dataset(infile, use_cftime=True)   # preserve noleap calendar
 
     # Validate ncol size against the weight file
     if 'ncol' not in ds.dims:
@@ -302,10 +333,13 @@ for infile in infiles:
 
     regrid_out = os.path.join(
         out_dir,
-        f"{icase}.{varname}.{stats_type}.{dstgrid}.{date_str}.nc")
+        f"{icase}.{varname}.{stats_type}.{frequency}.{dstgrid}.{date_str}.nc")
     ds_regrid.to_netcdf(
         regrid_out,
-        encoding={varname: {'_FillValue': fill_val, 'dtype': 'float32'}})
+        encoding={
+            varname: {'_FillValue': fill_val, 'dtype': 'float32'},
+            'time'  : {'_FillValue': None},
+        })
     print(f"  Saved regridded output: {regrid_out}")
 
     ds.close()

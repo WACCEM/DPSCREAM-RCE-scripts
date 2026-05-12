@@ -304,7 +304,10 @@ for infile in infiles:
         f"{icase}.{varname}.regrid.{stats_type}.{date_str}.nc")
     ds_regrid.to_netcdf(
         regrid_out,
-        encoding={varname: {'_FillValue': fill_val, 'dtype': 'float32'}})
+        encoding={
+            varname: {'_FillValue': fill_val, 'dtype': 'float32'},
+            'time'  : {'_FillValue': None},
+        })
     print(f"  Saved regridded output: {regrid_out}")
 
     ds.close()

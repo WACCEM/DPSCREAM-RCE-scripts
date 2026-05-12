@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Concatenate DP-SCREAM Output Variable
 # 
-# This notebook extracts a specified variable from multiple DP-SCREAM history files and concatenates them into a single output file.
+# This notebook extracts a specified variable from multiple DP-SCREAM history files for a given day and concatenates them into a single output file for that day.
 # 
 # **Variable:** `LW_flux_up_at_model_top`  
 # **Source:** `scream_cpu_dpxx_RCE_dx1km` simulation run output (AVERAGE, 5-min interval)  
@@ -37,25 +37,41 @@ def extract_timestamp(filepath):
 
 # %%
 # --- CONFIGURATION ---
-icase      = "scream_cpu_dpxx_RCE_dx1km"
-run_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
-out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
+icase      = "RCE01_dx3km_gpu"
+in_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
+#in_dir     = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
+#out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
+#in_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/run"
+out_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw"
 
-varname    = "V_at_10m_above_surface"
+varname    = "VapWaterPath"
 
 # File naming parameters
 #stats_type = "AVERAGE"
 stats_type = "INSTANT"
 
-file_prefix  = f"{icase}.hist.{stats_type}.nmins_x5."
-file_suffix  = ".nc"
+file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+   #this is used to construct the file name pattern for searching the input files to be concatenated
+   #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
+   #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
+
+frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct the file name pattern for searching the input files to be concatenated
 
 # Date-range timestamps (inclusive) matching filename format YYYY-MM-DD
 ts_start = "2000-01-01"
-ts_end   = "2000-01-25"
+ts_end   = "2000-02-16"
 
 
 # %%
+if(file_type == "raw"):
+    file_prefix  = f"{icase}.hist.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
+elif(file_type == "cp"):
+    file_prefix  = f"{icase}.cp.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
+else:
+    file_prefix  = f"{icase}.{varname}.{stats_type}.{frequency}."
+    file_suffix  = ".nc"
 
 styear = int(ts_start[:4])
 stmonth = int(ts_start[5:7])
@@ -66,7 +82,7 @@ edmonth = int(ts_end[5:7])
 edday = int(ts_end[8:10])
 
 print(f"Variable  : {varname}")
-print(f"Run dir   : {run_dir}")
+print(f"Run dir   : {in_dir}")
 print(f"Output dir: {out_dir}")
 print(f"Period    : {ts_start}  to  {ts_end}")
 
@@ -103,7 +119,7 @@ for idct in range(ndays):
     print(f"Processing day {idct+1}/{ndays}: {day_str}")
 
     # Filter files for this day
-    day_files = sorted(glob.glob(os.path.join(run_dir, file_prefix + day_str + "-*.nc")))
+    day_files = sorted(glob.glob(os.path.join(in_dir, file_prefix + day_str + "-*.nc")))
     #day_files = [f for f in selected_files if extract_timestamp(f).startswith(day_str)]
 
     print(f"  Found {len(day_files)} files for {day_str}, opening...")
@@ -174,7 +190,7 @@ for idct in range(ndays):
     print(f"  Checking any outputs in the previous day's last file")
     previous_day = date_range[idct] - np.timedelta64(1, 'D')
     previous_day_str = str(previous_day)
-    previous_day_files = sorted(glob.glob(os.path.join(run_dir, file_prefix + previous_day_str + "-*.nc")))
+    previous_day_files = sorted(glob.glob(os.path.join(in_dir, file_prefix + previous_day_str + "-*.nc")))
     previous_day_file = previous_day_files[-1] if previous_day_files else None
     var_prevday = None
 
@@ -200,7 +216,7 @@ for idct in range(ndays):
     print(f"  Checking any outputs in the next day's first file")
     next_day = date_range[idct] + np.timedelta64(1, 'D')
     next_day_str = str(next_day)
-    next_day_files = sorted(glob.glob(os.path.join(run_dir, file_prefix + next_day_str + "-*.nc")))
+    next_day_files = sorted(glob.glob(os.path.join(in_dir, file_prefix + next_day_str + "-*.nc")))
     next_day_file = next_day_files[0] if next_day_files else None
     next_day_file
     var_nextday = None
@@ -265,7 +281,7 @@ for idct in range(ndays):
     ds_today_extended = xr.Dataset(ds_vars)
 
     # Save concatenated dataset for this day
-    out_path = os.path.join(out_dir, f"{icase}.{varname}.hist.{stats_type}.{day_str}.nc")
+    out_path = os.path.join(out_dir, f"{icase}.{varname}.{stats_type}.{frequency}.{day_str}.nc")
     # Encode time as float64 (double) instead of xarray's default int64 so that
     # ncview and other tools that don't recognise NC_INT64 (type 10) can read it.
     # _FillValue=None suppresses the unwanted _FillValue attribute on the time coordinate.

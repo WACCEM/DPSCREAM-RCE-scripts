@@ -35,24 +35,30 @@ from check_output_stream import get_output_stream
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "scream_cpu_dpxx_RCE_dx1km"
-stats_type = "AVERAGE" # "INSTANT" or "AVERAGE"
+icase      = "RCE01_dx3km_gpu"
+stats_type = "INSTANT" # "INSTANT" or "AVERAGE" #later modified depending on the variable using the get_output_stream function, which checks the variable name against the output stream types to determine which one it belongs to. If the variable is not found in either stream, it will be skipped with a warning.
+
+file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+   #this is used to construct the file name pattern for searching the input files to be concatenated
+
+#used for raw files
+frequency = "nhours_x1" # e.g. "nmins_x5" (= 5 minutes), "nhours_x1" (= 1 hour), etc., this is used to construct the file name pattern for searching the input files to be concatenated
+
 
 # Variables to process.  Use ["all"] to process every ncol-based variable
-# found in the input file(s).
-vartodo = ["VapWaterPath","T_mid_200m","LW_flux_up_at_model_top"]
+# found in the input file(s). All variables must have the same file_type, stats_type, and frequency as specified above.
+#vartodo = ["VapWaterPath"]  #,"LW_flux_up_at_model_top",VapWaterPath
+varname = "imse" # 
 
 # Input files produced by concat_DPSCREAM.py.
-in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases"
-          f"/{icase}/processed")
+in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+#in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
 # Output directory (created if it does not already exist)
 out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/havg")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
-ts_end   = "2000-01-25"
-
-
+ts_end   = "2000-05-31"
 
 # %%
 
@@ -84,18 +90,18 @@ def find_ncol_vars(ds, vartodo):
     dimarr   = []
     targets  = list(ds.data_vars) if vartodo == ["all"] else vartodo
 
-    for vname in targets:
-        if vname not in ds:
-            print(f"  WARNING: variable '{vname}' not found in dataset,"
+    for varname in targets:
+        if varname not in ds:
+            print(f"  WARNING: variable '{varname}' not found in dataset,"
                   " skipping.")
             continue
-        dims = ds[vname].dims
+        dims = ds[varname].dims
         if 'ncol' in dims and len(dims) == 2:
-            matching.append(vname)
+            matching.append(varname)
             dimarr.append('2D')
         elif 'ncol' in dims and ('lev' in dims or 'ilev' in dims) \
                 and len(dims) == 3:
-            matching.append(vname)
+            matching.append(varname)
             dimarr.append('3D')
 
     return matching, dimarr
@@ -118,105 +124,122 @@ def find_ncol_vars(ds, vartodo):
 # ---------------------------------------------------------------------------
 # Compute horizontal domain average for each variable
 # ---------------------------------------------------------------------------
-#for vname, vdim in zip(proc_vars, dim_types):
-for vname in vartodo:
-    print(f"\n{'='*60}")
-    print(f"Processing variable : {vname}")
-    stats_type = get_output_stream(vname)
-    if stats_type == "NONE":
-        print(f"  WARNING: variable '{vname}' not found in either output stream,"
-              " skipping.")
-        continue
+file_suffix  = ".nc"
 
-    infiles = [
-        os.path.join(in_dir,
-                    f"{icase}.{vname}.hist.{stats_type}.{str(d)}.nc")
-        for d in date_range]
+#for varname, vdim in zip(proc_vars, dim_types):
+#for varname in vartodo:
+print(f"\n{'='*60}")
+print(f"Processing variable : {varname}")
+#stats_type = get_output_stream(varname)
 
-    print(f"Period    : {ts_start}  to  {ts_end}")
-    print(f"\nFound {len(infiles)} input file(s):")
-    for fp in infiles:
-        print(f"  {fp}")
+if stats_type == "NONE":
+    print(f"  WARNING: variable '{varname}' not found in either output stream,"
+            " stopping.")
 
-    # ---------------------------------------------------------------------------
-    # Open input dataset
-    # ---------------------------------------------------------------------------
-    if len(infiles) == 1:
-        ds = xr.open_dataset(infiles[0])
-    else:
-        ds = xr.open_mfdataset(infiles, combine='by_coords', parallel=False)
+# %%
+if(file_type == "raw"):
+    file_prefix  = f"{icase}.hist.{stats_type}.{frequency}."
+    #infiles = sorted(glob.glob(os.path.join(in_dir, f"{file_prefix}*.nc")))
+else:
+    file_prefix  = f"{icase}.{varname}.{stats_type}.{frequency}."
+    #infiles = sorted(glob.glob(os.path.join(in_dir, f"{file_prefix}*.nc")))
+    # infiles = [
+    # os.path.join(in_dir,
+    #             f"{file_prefix}{str(d)}{file_suffix}")
+    # for d in date_range]
 
-    print("\nDataset overview:")
-    print(ds)
+date_strs = {str(d) for d in date_range}
+infiles = [f for f in sorted(glob.glob(os.path.join(in_dir, f"{file_prefix}*.nc")))
+           if os.path.basename(f)[len(file_prefix):len(file_prefix)+10] in date_strs]
 
-    if 'ncol' not in ds.dims:
-        raise ValueError("Input dataset does not contain an 'ncol' dimension.")
+print(f"Period    : {ts_start}  to  {ts_end}")
+print(f"\nFound {len(infiles)} input file(s):")
+for fp in infiles:
+    print(f"  {fp}")
+# %%
 
-    time_coord = ds['time']
-    lev_vals   = ds['lev'].values if 'lev' in ds else None
+# ---------------------------------------------------------------------------
+# Open input dataset
+# ---------------------------------------------------------------------------
+if len(infiles) == 1:
+    ds = xr.open_dataset(infiles[0])
+else:
+    ds = xr.open_mfdataset(infiles, combine='by_coords', parallel=False)
 
-    # Load data as float32; replace fill / huge values with NaN
-    data = ds[vname].values.astype(np.float32)
-    #data[data >= 1e30] = np.nan
+print("\nDataset overview:")
+print(ds)
 
-    dims = ds[vname].dims
-    if 'ncol' in dims and len(dims) == 2:
-        vdim = '2D'
-    elif 'ncol' in dims and ('lev' in dims or 'ilev' in dims) \
-            and len(dims) == 3:
-        vdim = '3D'
+if 'ncol' not in ds.dims:
+    raise ValueError("Input dataset does not contain an 'ncol' dimension.")
 
-    # Ensure 3-D data is (time, ncol, lev)
-    if vdim == '3D':
-        orig_dims = ds[vname].dims
-        if orig_dims.index('ncol') == 1:
-            # (time, lev, ncol) -> (time, ncol, lev)
-            data = data.transpose(0, 2, 1)
+time_coord = ds['time']
+lev_vals   = ds['lev'].values if 'lev' in ds else None
 
-    # axis=1 collapses ncol:
-    #   2-D: (ntime, ncol)       -> (ntime,)
-    #   3-D: (ntime, ncol, nlev) -> (ntime, nlev)
-    print("  Computing horizontal domain average ...")
-    havg = np.nanmean(data, axis=1)
-    hvar = np.nanvar(data, axis=1)
+# %%
 
-    if vdim == '2D':
-        havg_dims   = ('time',)
-        havg_coords = {'time': time_coord}
-    else:
-        havg_dims   = ('time', 'lev')
-        havg_coords = {'time': time_coord, 'lev': lev_vals}
+# Load data as float32; replace fill / huge values with NaN
+data = ds[varname].values.astype(np.float32)
+#data[data >= 1e30] = np.nan
 
-    havg_attrs = dict(ds[vname].attrs)
-    havg_attrs['description'] = (
-        'Horizontal domain average over all ncol columns')
+dims = ds[varname].dims
+if 'ncol' in dims and len(dims) == 2:
+    vdim = '2D'
+elif 'ncol' in dims and ('lev' in dims or 'ilev' in dims) \
+        and len(dims) == 3:
+    vdim = '3D'
 
-    hvar_attrs = dict(ds[vname].attrs)
-    hvar_attrs['description'] = (
-        'Horizontal domain variance over all ncol columns')
-    if 'units' in hvar_attrs and hvar_attrs['units']:
-        hvar_attrs['units'] = f"({hvar_attrs['units']})^2"
+# Ensure 3-D data is (time, ncol, lev)
+if vdim == '3D':
+    orig_dims = ds[varname].dims
+    if orig_dims.index('ncol') == 1:
+        # (time, lev, ncol) -> (time, ncol, lev)
+        data = data.transpose(0, 2, 1)
 
-    ds_havg = xr.Dataset(
-        {vname: xr.DataArray(havg, dims=havg_dims, coords=havg_coords,
-                             attrs=havg_attrs),
-         f"{vname}_var": xr.DataArray(hvar, dims=havg_dims, coords=havg_coords,
-                                      attrs=hvar_attrs)},
-        attrs={
-            'processing' : 'horizontal domain average (mean over ncol) and variance',
-        }
-    )
-    if lev_vals is not None and vdim == '3D':
-        ds_havg['lev'].attrs = {
-            'units': 'mb', 'long_name': 'hybrid level at midpoints'}
+# axis=1 collapses ncol:
+#   2-D: (ntime, ncol)       -> (ntime,)
+#   3-D: (ntime, ncol, nlev) -> (ntime, nlev)
+print("  Computing horizontal domain average ...")
+havg = np.nanmean(data, axis=1)
+hvar = np.nanvar(data, axis=1)
 
-    havg_out = os.path.join(
-        out_dir,
-        f"{icase}.{vname}.havg.{stats_type}.{out_tag}.nc")
-    ds_havg.to_netcdf(havg_out)
-    print(f"  Saved domain-average: {havg_out}")
+if vdim == '2D':
+    havg_dims   = ('time',)
+    havg_coords = {'time': time_coord}
+else:
+    havg_dims   = ('time', 'lev')
+    havg_coords = {'time': time_coord, 'lev': lev_vals}
 
-    del ds_havg, data, havg, hvar
+havg_attrs = dict(ds[varname].attrs)
+havg_attrs['description'] = (
+    'Horizontal domain average over all ncol columns')
+
+hvar_attrs = dict(ds[varname].attrs)
+hvar_attrs['description'] = (
+    'Horizontal domain variance over all ncol columns')
+if 'units' in hvar_attrs and hvar_attrs['units']:
+    hvar_attrs['units'] = f"({hvar_attrs['units']})^2"
+
+ds_havg = xr.Dataset(
+    {varname: xr.DataArray(havg, dims=havg_dims, coords=havg_coords,
+                            attrs=havg_attrs),
+        f"{varname}_var": xr.DataArray(hvar, dims=havg_dims, coords=havg_coords,
+                                    attrs=hvar_attrs)},
+    attrs={
+        'processing' : 'horizontal domain average (mean over ncol) and variance',
+    }
+)
+if lev_vals is not None and vdim == '3D':
+    ds_havg['lev'].attrs = {
+        'units': 'mb', 'long_name': 'hybrid level at midpoints'}
+
+havg_out = os.path.join(
+    out_dir,
+    f"{icase}.{varname}.havg.{stats_type}.{out_tag}.nc")
+ds_havg.to_netcdf(havg_out, encoding={'time': {'_FillValue': None}})
+print(f"  Saved domain-average: {havg_out}")
+
+del ds_havg, data, havg, hvar
+# %%
 
 ds.close()
 print(f"\n{'='*60}")
