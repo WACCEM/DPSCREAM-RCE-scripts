@@ -82,7 +82,7 @@ nohup.out
 *.blg
 
 # =============================================================================
-# OS / Editor junk
+# OS / Editor junk and GNU Parallel input files (.txt)
 # =============================================================================
 .DS_Store
 .DS_Store?
@@ -91,3 +91,4 @@ Thumbs.db
 .vscode/
 *.sublime-project
 *.sublime-workspace
+*.txt
