@@ -52,12 +52,16 @@ DP-SCREAM/
 
 | Dependency | Purpose |
 |------------|---------|
-| Python ≥ 3.9 | Post-processing and analysis |
+| Python ≥ 3.9 | CIME, post-processing and analysis |
 | `xarray`, `numpy`, `scipy` | Data manipulation |
 | `matplotlib`, `cartopy` | Visualisation |
 | `xesmf` | Regridding |
 | `netCDF4` / `h5py` | NetCDF I/O |
 | E3SM / SCREAM source code | Running simulations |
+
+- To get the late-enough python for CIME, we need to load the python module on Perlmutter (for v3.1.0 alpha and later)
+- It is better to load the cray Python module than the NERSC Python modules. As of 2026-05, the default is `cray-python/3.11.7`. See the "CIME Python Version Warning and Its Side Effects" section in `run_scripts/build_failures.md`.
+- DO NOT activate the E3SM unified environment when configuring and manupilating DP-SCREAM (E3SM) cases
 
 ---
 
@@ -76,7 +80,17 @@ sbatch run_scripts/run_gpu_dpxx_scream_RCE_dx1km.sh
 See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 
 ---
+### List of simulations
 
+| Case name |  Grid | Description |
+|----------|-------------|--------
+| RCE01_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 release code default |
+| RCE02_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 alpha 8426cb31c7   |
+| RCE03_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 with `lambda_high = 0.08` |
+| RCE04_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 with `do_iop_subsidence=false` |
+| RCE05_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with `do_iop_subsidence=false` |
+| RCE06_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with P3 linear ccn function as in v3.0.2 |
+| RCE07_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with the high solar irradiance in v3.0.2 |
 
 ### output
 

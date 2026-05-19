@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
-#need to use e3sm unified environment, and 
-#source /global/common/software/e3sm/anaconda_envs/load_latest_e3sm_unified_pm-cpu.sh
-#better run the above line outside of this script to avoid issues
-#e.g., /global/homes/p/paullric/ncvis/export: Permission denied.
+#need to load the Python module, specifically cray-python module, before running this script to ensure the correct version of Python is used for the xmlchange and atmchange scripts.  If you do not have the correct version of Python loaded, you may encounter errors when running those scripts.
+# module load cray-python/3.11.7
 #######################################################################
 #######################################################################
 #######  Script to run SCREAMv1 in doubly periodic (DP) mode (DP-EAMxx)
@@ -30,7 +28,7 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=RCE02_dx3km_gpu
+export casename=RCE05_dx3km_gpu
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
@@ -139,11 +137,11 @@ edit_output=true
 edit_build=false
 edit_domain=false
 edit_jobconf=false
-edit_atmconf=false
+edit_atmconf=true
 
-do_continue_run=TRUE
+do_continue_run=FALSE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
-num_resubmit=10
+num_resubmit=5
 #-submit a job
 run_job=true
 
@@ -159,7 +157,7 @@ run_job=true
   do_iop_nudge_tq=false # Relax T&Q to observations?
   do_iop_nudge_uv=false # Relax U&V to observations?
   do_iop_nudge_coriolis=false # Nudge to geostrophic winds?
-  do_iop_subsidence=true # compute LS vertical transport?
+  do_iop_subsidence=false # compute LS vertical transport?
 
   startdate=2000-01-01 # Start date in IOP file
   start_in_sec=0 # start time in seconds in IOP file
@@ -297,7 +295,7 @@ fi
 
 
 # Get local input data directory path
-  input_data_dir=$(./xmlquery DIN_LOC_ROOT -value)
+  input_data_dir=$(./xmlquery DIN_LOC_ROOT --value | tail -1)
 
 # Run case.setup if explicitly requested (run_setup=true), or if env_mach_specific.xml
 # is missing (e.g. after a previous case.setup --clean left no xml for xmlchange to read).
@@ -333,6 +331,14 @@ if [ "$edit_atmconf" = true ]; then
   ./atmchange extra_shoc_diags=true
   ./atmchange iop_nudge_uv=$do_iop_nudge_uv
   ./atmchange iop_nudge_tq=$do_iop_nudge_tq
+
+  # Explicitly set files that the nlev selector in namelist_defaults_eamxx.xml
+  # should auto-set but fails to, because xmlquery prints a Python version
+  # warning to stdout which gets prepended to SCREAM_CMAKE_OPTIONS; the
+  # buildnml selector uses re.match() (not re.search()), so the newline
+  # prevents it from finding SCREAM_NUM_VERTICAL_LEV on the second line.
+  ./atmchange vertical_coordinate_filename=$input_data_dir/atm/scream/init/vertical_coordinates_L128_20220927.nc
+  ./atmchange initial_conditions::filename=$input_data_dir/atm/scream/init/screami_ne30np4L128_20221004.nc
 fi
 
 if [ "$edit_output" = true ]; then

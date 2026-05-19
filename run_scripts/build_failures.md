@@ -429,3 +429,188 @@ KeyError: 'frequency'
 
 This appears during `case.build` when generating namelists, before any compilation
 begins.
+
+---
+
+## Setup Failure: `ModuleNotFoundError: No module named 'pkg_resources'`
+
+**Date**: 2026-05-14  
+**Machine**: Perlmutter GPU (`pm-gpu`), NERSC  
+**Run script**: `run_RCE03_dx3km_gpu.sh`  
+**Stage**: `case.setup` (during namelist generation, before any compilation)
+
+### Symptom
+
+`case.setup` exits with a traceback ending in:
+
+```
+File ".../eamxx/cime_config/yaml_utils.py", line 6, in <module>
+    ensure_yaml()
+  File ".../eamxx/scripts/utils.py", line 416, in ensure_yaml
+    def ensure_yaml():   _ensure_pylib_impl("yaml", pip_libname="pyyaml",min_version='5.1')
+  File ".../eamxx/scripts/utils.py", line 412, in _ensure_pylib_impl
+    expect(package_version_ok(pkg,min_version),
+  File ".../eamxx/scripts/utils.py", line 381, in package_version_ok
+    from pkg_resources import parse_version
+ModuleNotFoundError: No module named 'pkg_resources'
+```
+
+### Root Cause
+
+The `ncl` conda environment (`/global/common/software/m1867/python/ksa_env/conda/ncl`)
+was active when the script was run. That environment uses **Python 3.12.2**, in which
+`pkg_resources` (part of `setuptools`) is not importable — even though `setuptools`
+82.0.1 is installed. This is a known incompatibility in some conda+setuptools
+configurations on Python 3.12.
+
+When the `ncl` environment is active, its `python` binary takes precedence on `$PATH`.
+CIME's `case.setup` (shebang `#!/usr/bin/env python3`) then runs under Python 3.12.2,
+which hits the `from pkg_resources import parse_version` line in `utils.py` and crashes.
+
+This had not been seen before because earlier runs were done without this conda
+environment active, so `case.setup` fell back to the system Python 3.6.15 (or the
+E3SM unified environment), both of which have a working `pkg_resources`.
+
+**Do not activate the `ncl` conda environment (or any conda environment that alters
+`$PATH` for `python3`) before running `case.setup` or `case.build`.**
+
+### Fix
+
+Modified `package_version_ok` in
+`/global/cfs/cdirs/wcm_code/ksa/E3SM/model/E3SM/components/eamxx/scripts/utils.py`
+to remove the hard dependency on `pkg_resources`, replacing it with a three-level
+fallback:
+
+```python
+# BEFORE:
+def package_version_ok(pkg, min_version=None):
+    from pkg_resources import parse_version
+    return True if min_version is None else parse_version(pkg.__version__) >= parse_version(min_version)
+
+# AFTER:
+def package_version_ok(pkg, min_version=None):
+    if min_version is None:
+        return True
+    try:
+        from packaging.version import Version as parse_version
+    except ImportError:
+        try:
+            from pkg_resources import parse_version
+        except ImportError:
+            # Simple fallback: compare version tuples
+            def parse_version(v):
+                return tuple(int(x) for x in str(v).split(".")[:3])
+    return parse_version(pkg.__version__) >= parse_version(min_version)
+```
+
+The `ncl` environment does have `packaging` available, so the first branch succeeds.
+This fix also makes the code robust for any future Python environment where
+`setuptools`/`pkg_resources` is absent.
+
+---
+
+## CIME Python Version Warning and Its Side Effects
+
+**Date**: 2026-05-18  
+**Machine**: Perlmutter (`pm-gpu`/`pm-cpu`), NERSC
+
+### The Warning
+
+When any CIME command (`xmlquery`, `xmlchange`, `atmchange`, `case.setup`, etc.) runs
+under Python < 3.8, CIME prints the following to **stdout** before the actual output:
+
+```
+Python 3.8 is recommended to run CIME. You have 3.6.
+```
+
+The system Python on Perlmutter is `/usr/bin/python3` = **Python 3.6.15**, so this
+warning appears by default (without any module loaded).
+
+### How the Warning Caused `file = UNSET` at Runtime (RCE05)
+
+The warning is printed to **stdout** (not stderr), so it is captured by shell command
+substitution (`$(...)`) along with the intended output. For example:
+
+```bash
+input_data_dir=$(./xmlquery DIN_LOC_ROOT --value)
+# input_data_dir is now:
+#   "Python 3.8 is recommended to run CIME. You have 3.6.\n/global/cfs/cdirs/e3sm/inputdata"
+```
+
+This polluted variable was then passed to `atmchange`:
+
+```bash
+./atmchange vertical_coordinate_filename=$input_data_dir/atm/scream/init/vertical_coordinates_L128_20220927.nc
+# becomes: atmchange vertical_coordinate_filename="Python 3.8 is recommended...\n/.../vertical_coordinates_L128_20220927.nc"
+```
+
+The `atmchange` call silently set a garbage path, leaving the value as `UNSET` in
+`namelist_scream.xml` (the selector mechanism in `eamxx_buildnml.py` uses `re.match()`
+which fails to match across the embedded newline). At runtime, EAMxx tries to open
+a file literally named `"UNSET"` and PIO crashes:
+
+```
+PIO: FATAL ERROR: No such file or directory (file = UNSET)
+```
+
+The same root cause set both `vertical_coordinate_filename` and
+`initial_conditions::filename` to `UNSET`.
+
+**Two-level fix applied in `run_RCE05_dx3km_gpu.sh` and `run_RCE06_dx3km_gpu.sh`:**
+
+1. Add `| tail -1` to all `xmlquery` command substitutions to strip the warning line:
+   ```bash
+   input_data_dir=$(./xmlquery DIN_LOC_ROOT --value | tail -1)
+   ```
+2. Set the affected filenames explicitly with `atmchange` (rather than relying on the
+   `nlev` selector in `namelist_defaults_eamxx.xml`):
+   ```bash
+   ./atmchange vertical_coordinate_filename=$input_data_dir/atm/scream/init/vertical_coordinates_L128_20220927.nc
+   ./atmchange initial_conditions::filename=$input_data_dir/atm/scream/init/screami_ne30np4L128_20221004.nc
+   ```
+
+After changing `namelist_scream.xml` via `atmchange`, the YAML read at runtime must
+be regenerated — **`case.run` does NOT auto-regenerate the EAMxx YAML**:
+```bash
+cd /pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE05_dx3km_gpu/case_scripts
+./preview_namelists
+```
+
+### Which Python Module to Load to Suppress the Warning
+
+Any module that replaces `python3` on `$PATH` with a version ≥ 3.8 will suppress the
+warning. Confirmed behavior on Perlmutter (tested 2026-05-18):
+
+| State | `python3` path | Version | Warning? |
+|-------|---------------|---------|----------|
+| No module loaded | `/usr/bin/python3` | 3.6.15 | **yes** |
+| `module load python/3.13-26.1.0` | `.../nersc-python/bin/python3` | 3.13.11 | no |
+| `module load cray-python/3.11.7` | `/opt/cray/pe/python/3.11.7/bin/python3` | 3.11.7 | no |
+
+**`cray-python/3.11.7` is preferred** over `python/3.13-26.1.0` because:
+
+- It uses a native Cray installation path (`/opt/cray/pe/...`), not a conda-based
+  path. This means it is not affected by conda environment PATH ordering.
+- It is part of the Cray Programming Environment alongside `cray-mpich`,
+  `cray-hdf5-parallel`, etc. that E3SM builds depend on — fewer interaction risks.
+- The NERSC `python/3.13-26.1.0` module is itself conda-managed
+  (path: `.../conda-envs/26.1.0/python-3.13/nersc-python/bin/python3`). If a
+  conda environment such as `ncl` is also active, conda's PATH prepend can place
+  the conda env's `python3` **before** the module's `python3`, silently re-introducing
+  Python 3.12.2 (or whichever version the env uses) as the effective interpreter.
+  `cray-python` is not susceptible to this conflict.
+
+### Interaction With the user-created Conda Environment
+
+Conda environment generated by the user, such as the `ncl` conda environment (`ksa_env/conda/ncl`) prepends its `bin/` to `$PATH` when activated via `conda activate ncl`. This overrides `python3` regardless of
+which module is loaded (unless `cray-python` is loaded **after** the conda activation,
+in which case module PATH takes precedence on most systems — but this is fragile).
+
+**Best practice**: do not have any conda environment active when running
+`case.setup`, `case.build`, or any other CIME command. Deactivate first:
+```bash
+conda deactivate
+module load cray-python/3.11.7   # optional — suppresses the warning
+```
+If you need the `ncl` conda environment for analysis tools in the same session,
+run CIME commands first, then activate the conda env afterward.

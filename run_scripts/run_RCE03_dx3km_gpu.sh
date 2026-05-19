@@ -30,16 +30,16 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=RCE02_dx3km_gpu
+export casename=RCE03_dx3km_gpu
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
 
 # Directory where code lives
-export code_dir=/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests
+export code_dir=/global/cfs/cdirs/wcm_code/ksa/E3SM/model/
 
 # Code tag name
-export code_tag=8426cb31c7_clone
+export code_tag=E3SM
 
 # Name of machine you are running on (i.e. pm-cpu, anvil, etc)
 export machine=pm-gpu
@@ -126,24 +126,24 @@ nu_top_dyn=1e4
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
 #-switches to run/not to run CESM scripts  -----------------------------------
-run_setup=false        #case.setup 
+run_setup=true        #case.setup 
 clean_setup=false
 
 
-run_build=false       #./case.build
+run_build=true       #./case.build
 clean_build=false
 
 edit_output=true
 #./atmchange to edit output options (e.g., compute tendencies for output, add yaml output files, etc)
 
-edit_build=false
-edit_domain=false
-edit_jobconf=false
-edit_atmconf=false
+edit_build=true
+edit_domain=true
+edit_jobconf=true
+edit_atmconf=true
 
-do_continue_run=TRUE
+do_continue_run=FALSE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
-num_resubmit=10
+num_resubmit=25
 #-submit a job
 run_job=true
 
@@ -179,15 +179,15 @@ run_job=true
   echo "E3SM root: $E3SMROOT"
 
   # Verify the required branch is checked out before proceeding
-#   required_branch="8426cb31c7_clone"
-#   current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
-#   if [[ "${current_branch}" != "${required_branch}" ]]; then
-#       echo "ERROR: E3SM source code is on branch '${current_branch}'," \
-#            "but '${required_branch}' is required."
-#       echo "       Run: git -C ${E3SMROOT} checkout ${required_branch}"
-#       exit 1
-#   fi
-#  echo "Confirmed E3SM branch: ${current_branch}"
+  required_branch="ksa/uvwinds"
+  current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if [[ "${current_branch}" != "${required_branch}" ]]; then
+      echo "ERROR: E3SM source code is on branch '${current_branch}'," \
+           "but '${required_branch}' is required."
+      echo "       Run: git -C ${E3SMROOT} checkout ${required_branch}"
+      exit 1
+  fi
+  echo "Confirmed E3SM branch: ${current_branch}"
 
   compset=FRCE-SCREAMv1-DP
 
@@ -333,7 +333,15 @@ if [ "$edit_atmconf" = true ]; then
   ./atmchange extra_shoc_diags=true
   ./atmchange iop_nudge_uv=$do_iop_nudge_uv
   ./atmchange iop_nudge_tq=$do_iop_nudge_tq
+  ./atmchange lambda_high=0.08  #test value for RCE: KSA
+  #./atmchange physics::shoc::lambda_high=0.08  #test value for RCE: KSA
+
+  #confirm the sensivity test parameter value is set correctly
+  ./atmquery lambda_high
+
 fi
+
+
 
 if [ "$edit_output" = true ]; then
 
@@ -349,8 +357,8 @@ if [ "$edit_output" = true ]; then
  # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
  # Note that you can have as many output streams (yaml files) as you want!
 
-    yamlfile1=scream_test2_output_avg_1hour.yaml
-    yamlfile2=scream_test2_output_inst_1hour.yaml
+    yamlfile1=scream_test_output_avg_1hour.yaml
+    yamlfile2=scream_test_output_inst_1hour.yaml
     #yamlfile2=scream_horiz_avg_output_5min.yaml
 
     # ./atmchange output_yaml_files="./scream_horiz_avg_output_5min.yaml"

@@ -92,3 +92,4 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 *.txt
+run_scripts/debug_files/

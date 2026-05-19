@@ -6,13 +6,28 @@ Script: `run_cpu_dpxx_scream_RCE_dx1km.sh`
 
 ## Domain geometry
 
+### "1km" grid
 | Parameter | Value |
 |---|---|
 | `num_ne_x` × `num_ne_y` | 200 × 200 = **40,000 elements** |
-| Unique dynamics columns (3×3/element) | **360,000** |
-| dx = dy | 600,000 / (200 × 3) = **1 km** |
+| Unique dynamics columns (3×3/element) | **360,000** (600×600 GLL grid) |
+| Dynamics dx = dy | 600,000 / (200 × 3) = **1 km** |
+| Unique physics columns (PG2, 2×2/element) | **160,000** (400×400 Gauss grid) |
+| Physics dx = dy (PG2) | 600,000 / (200 × 2) = **1.5 km** |
 | Timesteps for a 12 h segment | 1,440 physics (30 s), 17,280 dynamics (2.5 s) |
 | Vertical levels | 128 |
+
+### "3km" grid
+| Parameter | Value |
+|---|---|
+| `num_ne_x` × `num_ne_y` | 60 × 60 = **3,600 elements** |
+| Unique dynamics columns (3×3/element) | **32,400** (180×180 GLL grid) |
+| Dynamics dx = dy | 600,000 / (60 × 3) = **3.33 km** |
+| Unique physics columns (PG2, 2×2/element) | **14,400** (120×120 Gauss grid) |
+| Physics dx = dy (PG2) | 600,000 / (60 × 2) = **5 km** |
+| Timesteps for a 12 h segment | 1,440 physics (100 s), 17,280 dynamics (8.33 s) |
+| Vertical levels | 128 |
+
 
 ## Perlmutter CPU hardware constraint
 
@@ -310,10 +325,12 @@ The current model code at `/global/cfs/cdirs/wcm_code/ksa/E3SM/model/E3SM` is on
 
 ### Boundary Layer (SHOC)
 
-- **Default `lambda_high` changed to 0.08** (PR #6797, **non-BFB**):
-  `lambda_high` controls the turbulence length scale in SHOC's closure. This
-  default change affects TKE, cloud fraction, and moisture in the PBL in all
-  simulations.
+- **Default `lambda_high` changed from 0.04 to 0.08** (PR #6797, **non-BFB**):
+  `lambda_high` is an upper bound on the SHOC turbulence length scale parameter
+  $\lambda$, which controls the mixing length in the TKE closure. The value was
+  doubled (0.04 → 0.08), allowing more vigorous vertical mixing in convective
+  conditions. This change affects TKE, cloud fraction, and moisture in the PBL
+  in all simulations.
 - **Bug fix in SHOC**: Fixed a conditional jump on uninitialized memory
   (potential GPU/reproducibility issue).
 - **F90-to-CXX porting**: Several SHOC assumed-PDF functions converted to C++
@@ -344,3 +361,565 @@ The current model code at `/global/cfs/cdirs/wcm_code/ksa/E3SM/model/E3SM` is on
 
 - **Performance overhaul**: Removed all dynamic memory allocations from
   `rrtmgp run_impl`; significant Kokkos-based GPU performance improvements.
+
+---
+
+## EAMxx Changes: `8e96857632` → `8426cb31c7` (`v3.1.0-alpha-3683`)
+
+**Period:** February 26, 2025 → September 23, 2025 (~7 months, ~995 eamxx commits)
+
+Note: The external forcing (elevated emissions) bug fix (PR #7315) described
+below affects only simulations using the full MAM4xx aerosol package with
+prescribed 3D elevated emissions. The `FRCE-SCREAMv1-DP` RCE compset uses SPA
+(Simple Prescribed Aerosols) instead, so **this bug is not relevant to DP-SCREAM
+RCE simulations**.
+
+### Boundary Layer (SHOC)
+
+- **1.5 TKE closure option added** (PR #7188, **non-BFB**): New runtime flag
+  `shoc_1p5tke=true` reduces SHOC to a simpler 1.5-order TKE scheme by zeroing
+  SGS scalar variances/covariances and the third moment of vertical velocity.
+  This collapses the assumed-PDF to an all-or-nothing closure and changes how
+  eddy diffusivities and mixing length are defined. A significant new option for
+  idealized and high-resolution runs such as DP-SCREAM.
+- **FPE fix in SHOC** (PR #7368): Fixed a floating-point exception that could
+  cause crashes on some platforms.
+- **SHOC condensation/evaporation diagnostics**: Added `shoc_cond` and
+  `shoc_evap` as diagnostic outputs; fixed their computation order (now before
+  `ql` update).
+- **Tracer turbulence advection control** (PR #6789, **non-BFB for MAM**):
+  Processes can now opt out of SHOC turbulence advection for individual tracers
+  (`turbulence_advected=false`), allowing aerosol tracers to be advected only by
+  dynamics.
+
+### Microphysics (P3)
+
+- **Separate liquid/ice cloud fractions in P3** (PR #6966, BFB): P3 now receives
+  separate `cldfrac_liq` and `cldfrac_ice` instead of a single `cldfrac_tot`,
+  and the Wegener-Bergeron-Findeisen (WBF) process is modified accordingly (based
+  on Lin Lin's work in THREAD). Lays the groundwork for improved mixed-phase
+  cloud treatment.
+- **Mixed-phase cloud improvements, part 2** (PR #7223, BFB): Further
+  refinements to the separate mixed-phase cloud fraction option.
+- **New default cloud fraction `r` values** (PR #7412, **non-BFB**):
+  Resolution-dependent defaults for the cloud fraction parameter `r` updated
+  based on group evaluation — directly affects cloud cover and radiation.
+- **P3 extra diagnostics** (PR #7245): Additional P3 diagnostic output fields
+  enabled.
+- **Equivalent radar reflectivity diagnostic**: Added `diag_equiv_reflectivity`
+  as a P3 output field.
+- **Nested parallelism in P3 pre/post-processing** (PR #7168): GPU performance
+  improvement using nested Kokkos team policies.
+
+### Aerosols (MAM4xx)
+
+- **External forcing (elevated emissions) bug fix** (PR #7315, **non-BFB**):
+  Critical bug where BC, POM, and SO4 elevated emission fluxes were ~50% of
+  their correct values (off by a factor of ~2). Significant error correction for
+  simulations using MAM4xx with prescribed elevated emissions. *Not relevant to
+  RCE/DP-SCREAM which uses SPA.*
+- **SPA CCN→Nc activation functionalized** (PR #7120): Ability to use different
+  functional forms for the CCN-to-droplet-number activation in SPA.
+- **Aerosol dry deposition fix** (PR #7083): Fixed the dry deposition update.
+- **`ndrop` top-level fix** (PR #7141): Fixed droplet number calculation at the
+  model top.
+- **3D SO4/H2SO4 aqueous chemistry diagnostic fields** added.
+- **Prescribed ozone option in MAM4xx**: Added ability to prescribe ozone
+  independently in MAM.
+- **Linoz on/off toggle** added.
+
+### Gravity Wave Drag (GWD)
+
+- **GWD ported to C++** (PR #7597): `gwd_compute_stress_profiles_and_diffusivities`
+  converted from Fortran to C++.
+
+### Deep Convection (ZM)
+
+- **ZM placeholder infrastructure added**: Initial scaffolding for bridging the
+  Zhang-McFarlane deep convection scheme into EAMxx. Not yet functional — only
+  the framework was created in this period.
+
+### Radiation (RRTMGP / COSP)
+
+- **YAKL dependency removed** (PR #7345): RRTMGP fully migrated to Kokkos,
+  eliminating the YAKL GPU library dependency.
+- **Radiation/COSP frequency logic fixed** (PR #7337, **non-BFB**): Radiation
+  now runs on steps 1, `rad_freq+1`, `2*rad_freq+1`, etc., consistent with the
+  output frequency convention. Previously the timing was offset. This changes
+  when radiation is called relative to the timestep count.
+- **Radiation restart fix**: Radiation can now correctly run on the first step
+  after a restart.
+
+---
+
+## P3 Subgrid Cloud Fraction Flags: Details and RCE Implications
+
+### What the flags do
+
+PR #6849 (in the `v3.0.2 → 8e96857632` range) added three boolean namelist
+parameters to `P3Runtime`:
+
+```cpp
+bool set_cld_frac_l_to_one = false;  // liquid cloud fraction seen by P3
+bool set_cld_frac_i_to_one = false;  // ice cloud fraction seen by P3
+bool set_cld_frac_r_to_one = false;  // rain fraction seen by P3
+```
+
+**Default: `false` in both `8e96857632` and `8426cb31c7`.** The subgrid cloud
+fraction treatment is still active by default — the flags are opt-in only.
+
+Normally P3 receives a subgrid cloud fraction from SHOC (e.g., `cld_frac_t < 1`
+in a partially cloudy grid cell). P3 uses these fractions to derive in-cloud/in-
+rain mixing ratios, which control process rates such as autoconversion,
+accretion, and rain evaporation. For example, if only 30% of a grid cell is
+cloudy, P3 concentrates the cloud liquid into that 30%, giving a higher in-cloud
+value that affects microphysical rates.
+
+When any flag is set to `true`, P3 replaces the corresponding cloud/rain
+fraction with 1 everywhere — the "overcast" or "no subgrid variability"
+assumption — so the in-cloud mixing ratio equals the grid-mean value.
+
+The merge commit message for PR #6849 states explicitly:
+
+> *"Currently they default to False, but we will likely enable them as part of
+> the effort to address the **popcorn convection problem**."*
+
+### Additional flags in `8426cb31c7`
+
+Compared to `8e96857632`, the newer version adds two more opt-in P3 flags:
+
+```cpp
+bool use_separate_ice_liq_frac = false;  // PR #6966: separate cld_frac_l/i
+bool extra_p3_diags            = false;  // PR #7245: extra diagnostic fields
+```
+
+All subgrid cloud fraction override flags remain `false` (opt-in) across both
+versions.
+
+### Implications for DP-SCREAM RCE simulations
+
+At convection-permitting resolutions (1–3 km), individual convective updrafts
+are partially resolved explicitly, but SHOC still parameterizes *subgrid*
+variability and produces fractional cloud cover < 1. This creates a physical
+inconsistency: the explicit dynamics resolves the convective cell while SHOC
+tells P3 that only a fraction of the grid cell is cloudy. P3 then concentrates
+mixing ratios into that fraction, artificially inflating in-cloud values and
+process rates.
+
+**With default (`false`):** P3 uses subgrid cloud fractions from SHOC. Rain
+fraction < 1 concentrates rain into a sub-portion of the cell, increasing the
+effective rain evaporation rate. More rain evaporation → stronger cold pools →
+more widespread triggering of new convection → tendency toward disorganized
+"popcorn" convection and potentially too-frequent precipitation.
+
+**With flags set to `true`:** Cloud and rain fractions are all 1. P3 uses
+grid-mean mixing ratios directly, reducing rain evaporation. Weaker/fewer cold
+pools → less triggering of new convection → potentially more organized
+convective systems, which is more physically consistent with explicitly resolved
+convection at these resolutions.
+
+For RCE in particular, convective self-aggregation is a key phenomenon of
+scientific interest. Setting `set_cld_frac_r_to_one = true` (the rain fraction
+flag, which primarily affects rain evaporation) could promote aggregation by
+suppressing excessive cold-pool-driven triggering. If popcorn-like convection is
+observed in your RCE runs, this is one of the first namelist parameters worth
+testing via `atmchange`:
+
+```bash
+./atmchange physics::p3::set_cld_frac_r_to_one=true
+./atmchange physics::p3::set_cld_frac_l_to_one=true
+./atmchange physics::p3::set_cld_frac_i_to_one=true
+```
+
+---
+
+## Why domain-mean PW is lower (and spatial variance higher) in v3.1.0-alpha vs. v3.0.2
+
+**Observed symptom:** domain-mean precipitable water is higher with the older
+code (v3.0.2 / `ksa/uvwinds`); spatial variance is lower. Changing
+`lambda_high` from 0.04 to 0.08 in the older code (RCE03) did not close the
+gap, so the cause lies elsewhere.
+
+The combination of **lower mean PW + higher spatial variance** is the signature
+of increased convective self-aggregation: the dry subsiding regions (which
+dominate by area) are drier, and the moisture contrast between moist convective
+cores and the dry environment is sharper.
+
+### Most likely candidates in the v3.0.2 → `8e96857632` transition
+
+Since both `8e96857632` and `8426cb31c7` show the same departure from v3.0.2,
+the primary cause must originate in this first transition.
+
+#### 1. IOP refactored into a standalone ATM process (PR #6787) — **highest priority**
+
+The RCE configuration uses `do_iop_subsidence=true`, so this change directly
+applies. Moving IOP forcing from an embedded step into a standalone atmosphere
+process changes **where in the physics timestep sequence large-scale subsidence
+is applied** — before or after SHOC, before or after P3, etc. Even with
+identical subsidence values, the order-of-operations relative to condensation
+and turbulent moistening changes the effective drying:
+
+- If subsidence now acts *after* SHOC instead of before, SHOC can no longer
+  partially counteract the imposed drying through turbulent moistening before
+  subsidence removes that moisture.
+- A systematic shift in application timing lowers domain-mean PW without any
+  change to the subsidence profile.
+- The ordering change also affects columns differently depending on their
+  convective state, amplifying moisture contrasts between ascending and
+  subsiding columns — directly explaining the higher spatial variance.
+
+**How to check:** inspect the `atmosphere_processes` order in `scream_input.yaml`
+for both cases:
+
+```bash
+grep -A 60 "atmosphere_processes" \
+  /pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE01_dx3km_gpu/run/data/scream_input.yaml \
+  | grep -E "type:|iop|shoc|p3|mac"
+
+grep -A 60 "atmosphere_processes" \
+  /pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE02_dx3km_gpu/run/data/scream_input.yaml \
+  | grep -E "type:|iop|shoc|p3|mac"
+```
+
+#### 2. P3 runtime parameters: compile-time constants → XML-based defaults (non-BFB)
+
+Autoconversion radius, accretion exponents (now split into two separate
+parameters), and cloud water autoconversion tuning were previously **hard-coded
+compile-time constants**. They are now exposed as runtime parameters with their
+own XML defaults. If those XML defaults differ even slightly from the old
+compiled-in values, precipitation efficiency changes:
+
+- A smaller autoconversion threshold radius → more efficient warm rain →
+  faster removal of cloud water → **lower PW**
+- Split accretion exponents with asymmetric defaults → changed rain growth
+  rate → affects how quickly rain reaches the surface vs. evaporates
+
+**How to check:** compare the P3 parameter block in `RCE02`'s `scream_input.yaml`
+against the hard-coded values in the v3.0.2 source:
+
+```bash
+grep -A 30 "^\s*p3:" \
+  /pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE02_dx3km_gpu/run/data/scream_input.yaml
+```
+
+### Additional candidates in the `8e96857632` → `8426cb31c7` transition
+
+If the PW difference grows further in the second transition, these are the
+relevant non-BFB changes:
+
+#### 3. New default cloud fraction `r` parameter values (PR #7412, non-BFB)
+
+The cloud fraction PDF shape parameter `r` was updated with
+**resolution-dependent defaults** based on group evaluation. This directly
+affects fractional cloud cover → longwave cloud radiative effect (CRE) in
+subsiding regions → the radiative aggregation feedback. Reduced cloud fraction
+in clear-sky/subsiding regions enhances the longwave cooling contrast between
+moist and dry columns, which is the primary radiative mechanism driving
+self-aggregation.
+
+#### 4. Separate liquid/ice cloud fractions in P3 (PR #6966)
+
+P3 now receives `cldfrac_liq` and `cldfrac_ice` separately instead of a single
+`cldfrac_tot`, and the Wegener-Bergeron-Findeisen (WBF) process is modified
+accordingly. More efficient WBF (ice growth at the expense of supercooled
+liquid) → faster glaciation → faster sedimentation → more efficient
+precipitation → **lower PW**.
+
+#### 5. Radiation timing fix (PR #7337, non-BFB)
+
+Radiation now runs on steps 1, `rad_freq+1`, `2*rad_freq+1`, ... instead of
+the previously offset schedule. In RCE, the **phase of the radiation call
+relative to the convective-dynamics cycle** matters for the radiative-convective
+feedback that drives aggregation. A systematic shift in when the clear-sky
+radiative cooling differential is applied can change the aggregation tendency.
+
+### Summary table
+
+| Change | Transition | Mechanism | PW↓ | Variance↑ |
+|---|---|---|---|---|
+| IOP as ATM process (PR #6787) | v3.0.2 → `8e96857632` | Subsidence applied at different timestep position | ✓✓ | ✓✓ |
+| ~~P3 compile-time → XML defaults~~ | v3.0.2 → `8e96857632` | All constants unchanged (verified) | — | — |
+| **Fixed TSI 551.58 vs. full ~1361 W/m²** | v3.0.2 → `8e96857632` | Fundamentally different radiative forcing regime | **✓✓✓** | **✓✓✓** |
+| Cloud fraction `r` defaults (PR #7412) | `8e96857632` → `8426cb31c7` | CRE contrast → aggregation feedback | ✓ | ✓✓ |
+| Separate liq/ice cldfrac in P3 (PR #6966) | `8e96857632` → `8426cb31c7` | WBF efficiency, precipitation rate | ✓ | ✓ |
+| Radiation timing fix (PR #7337) | `8e96857632` → `8426cb31c7` | Radiative-convective coupling phase | ✓ | ✓ |
+
+The IOP process reordering and the P3 parameter defaults are the most
+actionable to investigate first, since they apply to the first transition where
+the bulk of the PW difference must originate.
+
+---
+
+## Findings from YAML comparison: RCE01 vs RCE02 `scream_input.yaml`
+
+Files compared (copied to `run_scripts/debug_files/`):
+- `scream_input_RCE01_dx3km_gpu.yaml` — v3.0.2 (`ksa/uvwinds`, `75de3ed0f8`)
+- `scream_input_RCE02_dx3km_gpu.yaml` — v3.1.0-alpha-3683 (`8426cb31c7`)
+
+### Finding 1 — IOP process sequence (PR #6787 confirmed)
+
+**RCE01 physics process list:**
+```yaml
+physics:
+  atm_procs_list:
+  - mac_aero_mic   # tms → shoc → cldFraction → spa → p3
+  - rrtmgp
+```
+There is no `iop_forcing` entry anywhere in the process list. IOP was handled
+by the **driver** as a special code path keyed on `enable_iop: true` in
+`driver_options`. In v3.0.2, IOP forcing was applied from inside
+`eamxx_homme_driver_mod.F90` — effectively within the Homme dynamics step,
+**before** the physics group ran.
+
+**RCE02 physics process list:**
+```yaml
+physics:
+  atm_procs_list:
+  - iop_forcing    # ← standalone process, FIRST in physics
+  - mac_aero_mic   # tms → shoc → cld_fraction → spa → p3
+  - rrtmgp
+```
+IOP forcing is now an explicit atmosphere process and is the first to execute
+in the physics sequence.
+
+**Net effect on timestep order:**
+
+| Stage | RCE01 (v3.0.2) | RCE02 (new) |
+|---|---|---|
+| 1 | `sc_import` | `sc_import` |
+| 2 | `homme` (dynamics) | `homme` (dynamics) |
+| 3 | *(IOP forcing embedded here, inside homme driver)* | `iop_forcing` ← **subsidence here** |
+| 4 | `tms` | `tms` |
+| 5 | `shoc` | `shoc` |
+| 6 | `cldFraction` | `cld_fraction` |
+| 7 | `spa` | `spa` |
+| 8 | `p3` | `p3` |
+| 9 | `rrtmgp` | `rrtmgp` |
+| 10 | `sc_export` | `sc_export` |
+
+The practical ordering difference is **small**: in both versions, subsidence
+acts after dynamics and before SHOC/P3. The IOP refactor moved it from a
+hard-coded hook inside the dynamics module to an explicit first-in-physics
+step. The critical distinction is **whether the fields seen by SHOC at step 5
+are pre- or post-subsidence**: in both cases the answer is post-subsidence, so
+the sequence impact of PR #6787 alone is likely **minor**.
+
+**Conclusion on PR #6787 as PW cause:** the process reordering itself is not
+the primary driver of the PW difference. The larger changes are in P3
+microphysics parameters (see below).
+
+**Can you run the old code with the new process order?** No — v3.0.2 does not
+have the `IOPForcing` process class; it cannot be configured via `atmchange`.
+In the new code, you can experiment with moving `iop_forcing` to a different
+position (e.g., after `mac_aero_mic`) using `atmchange` to quantify any
+ordering sensitivity, but this is unlikely to explain the bulk of the PW gap.
+
+### Finding 2 — SPA CCN → Nc activation (most impactful P3 change) ⚠️
+
+| Parameter | RCE01 (v3.0.2) | RCE02 (new) |
+|---|---|---|
+| `p3_spa_to_nc` | `1.0` (linear, `Nc = 1.0 × CCN`) | — |
+| `spa_ccn_to_nc_factor` | — | `2000.0` |
+| `spa_ccn_to_nc_exponent` | — | `0.55` |
+
+In RCE01, the CCN-to-droplet-number conversion is a simple linear multiplier:
+$N_c = 1.0 \times \text{CCN}$ (in the same units). In RCE02 (PR #7120), a
+Twomey-type power law is used:
+
+$$N_c = 2000 \times \text{CCN}^{0.55}$$
+
+This is a **qualitatively different functional form**, not just a changed
+coefficient. For typical maritime SPA values (~10⁸ m⁻³), the new formula gives
+~5×10⁷ m⁻³ (50 cm⁻³), while for continental values (~10⁹ m⁻³) it gives
+~2×10⁸ m⁻³ (200 cm⁻³). The sublinear exponent (0.55 < 1) means $N_c$ is less
+sensitive to CCN than in the old linear scheme. Changes to $N_c$ directly
+affect cloud droplet effective radius, autoconversion onset, and precipitation
+efficiency — making this a strong candidate for the PW difference.
+
+### Finding 3 — P3 autoconversion/accretion exponents
+
+| Parameter | XML/YAML name (new code) | RCE01 old value | RCE02 new default | Changed? |
+|---|---|---|---|---|
+| Autoconversion prefactor | `autoconversion_prefactor` | `1350.0` (`P3_Constants`) | `1350.0` | No |
+| Autoconversion radius | `autoconversion_radius` | `25.0e-6 m` (via `CONS3 = 1/(CONS2·r³)`, `physics_constants.hpp:59`) | `25.0e-6 m` | **No** |
+| Autoconversion `qc` exponent | `autoconversion_qc_exponent` | `2.47` (hardcoded in formula) | `2.47` | No |
+| Autoconversion `Nc` exponent | `autoconversion_nc_exponent` | `1.79` (hardcoded in formula) | `1.79` | No |
+| Accretion prefactor | `accretion_prefactor` | `67.0` (`P3_Constants`) | `67.0` | No |
+| Accretion `qc` exponent | `accretion_qc_exponent` | `1.15` (single exponent on product `qc·qr`) | `1.15` | No |
+| Accretion `qr` exponent | `accretion_qr_exponent` | `1.15` (same product exponent) | `1.15` | No |
+
+**Conclusion: none of these parameters changed.** The old compile-time constants in v3.0.2
+exactly match the new XML defaults. Finding 3 is **not a source of the PW difference**.
+
+Key sources in `model/E3SM`:
+- `physics_constants.hpp:59`: `CONS3 = 1.0/(CONS2*1.562500000000000e-14) // 1./(CONS2*pow(25.e-6,3.0))`
+- `p3_autoconversion_impl.hpp:35`: `pow(qc_incld,sp(2.47))*pow(nc_incld*sp(1.e-6)*rho,sp(-1.79))`
+- `p3_cloud_rain_acc_impl.hpp:38`: `sp(p3_k_accretion) * pow(qc_incld * qr_incld, sp(1.15))`
+
+The new code refactored the accretion from a single `pow(qc·qr, 1.15)` into two separate
+exponents `qc^1.15 * qr^1.15`, but this is mathematically identical.
+
+To change any of these via `atmchange`, use `physics::mac_aero_mic::p3::<name>`, e.g.:
+```bash
+./atmchange physics::mac_aero_mic::p3::autoconversion_qc_exponent=2.47
+```
+
+### Finding 4 — SHOC `lambda_high`
+
+| | RCE01 | RCE02 |
+|---|---|---|
+| `lambda_high` | `0.04` | `0.08` |
+
+Confirmed as expected from PR #6797. This was already tested in RCE03 (old
+code + `lambda_high=0.08`) and did **not** close the PW gap, ruling it out as
+the primary cause.
+
+### Finding 5 — Additional RCE02-only P3 options
+
+RCE02 carries new flags absent from RCE01, all currently at their defaults:
+
+```yaml
+use_hetfrz_classnuc: false       # heterogeneous freezing (PR #6947)
+set_cld_frac_l_to_one: false     # subgrid cloud fraction override (PR #6849)
+set_cld_frac_r_to_one: false
+set_cld_frac_i_to_one: false
+use_separate_ice_liq_frac: false # separate liq/ice cldfrac (PR #6966)
+extra_p3_diags: false
+do_ice_production: true
+```
+
+All default to the behavior most compatible with RCE01 (subgrid fractions
+active, single cldfrac), so these are not the cause of the PW difference in
+the default RCE02 setup — but `set_cld_frac_r_to_one=true` remains a useful
+sensitivity test for popcorn convection (see the earlier section on this).
+
+### Finding 6 — `fixed_total_solar_irradiance` (RCE02 only) ⚠️
+
+RCE02 sets:
+```yaml
+fixed_total_solar_irradiance: 551.58
+```
+
+**This parameter does not exist in the old code (v3.0.2).** A search of
+`model/E3SM/components/eamxx/` confirms zero occurrences of
+`fixed_total_solar_irradiance`. Instead, the old code reads `tsi_default` from
+the RRTMGP SW coefficients file and scales it by an orbital eccentricity factor
+(`eccf`) computed from the model clock:
+
+- `tsi_default` in `rrtmgp-data-sw-g112-210809.nc` = **1360.858 W/m²**
+- `eccf` ≈ 1 on annual average, varying ±3.3% with Earth-Sun distance
+
+So the effective TSI differs dramatically between the two runs:
+
+| Run | Solar irradiance | How determined |
+|-----|-----------------|---------------|
+| RCE01 (old code) | **~1360.9 W/m²** (full TSI × eccf) | `tsi_default` from RRTMGP file, orbit-based scaling |
+| RCE02 (new code) | **551.58 W/m²** (fixed) | `fixed_total_solar_irradiance` in YAML |
+
+551.58 / 1360.86 = **40.5%** of the full solar constant. This is a **large difference
+in net shortwave forcing** that directly affects the radiative-convective equilibrium
+temperature and moisture profile. Lower insolation → lower equilibrium SST-relative
+temperature aloft → different lapse rate → different PW at equilibrium.
+
+The value 551.58 W/m² is appropriate for an idealized RCE with a fixed solar zenith
+angle: it represents the time-mean shortwave flux at some zenith angle (here approximately
+cos⁻¹(551.58/1360.86) ≈ 66° or a geometry-weighted mean). In the old code, since
+`Fixed Solar Zenith Angle = -9999` (disabled), the zenith angle varies realistically
+with the simulated time of day and year, and the full TSI ~1361 W/m² is used — which
+means the instantaneous solar forcing can range from 0 (night) to ~1361 W/m² (overhead),
+with a domain-average that depends on the diurnal cycle and latitude.
+
+**This is likely a major contributor to the PW difference** and should be investigated
+before the CCN→Nc change. The two runs are not in the same radiative equilibrium regime.
+
+### Recommended investigation order
+
+1. **Fixed solar irradiance vs. full TSI** (Finding 6) — **highest priority ⚠️**: RCE01
+   uses the full solar constant (~1361 W/m²) with a diurnal/seasonal cycle; RCE02 uses a
+   fixed 551.58 W/m² (40.5% of the full TSI). These two runs are in fundamentally different
+   radiative forcing regimes. To isolate the microphysics effects, first make the solar
+   forcing consistent between the two runs. Either:
+   - Add `fixed_total_solar_irradiance` to RCE01 (not possible — the parameter doesn't
+     exist in v3.0.2), OR
+   - Set `fixed_total_solar_irradiance` to the full TSI in RCE02 and compare with
+     orbit-based insolation, OR
+   - Accept that the solar forcing difference dominates and factor it out before
+     attributing PW changes to microphysics.
+
+2. **CCN→Nc activation change** (Finding 2): the old value is `p3_spa_to_nc: 1.0`
+   in the RCE01 yaml — a simple linear multiplier, not a hardcoded constant.
+   Setting `spa_ccn_to_nc_factor=1.0` and `spa_ccn_to_nc_exponent=1.0` in RCE02
+   exactly reproduces `Nc = 1.0 × CCN`:
+   ```bash
+   ./atmchange physics::mac_aero_mic::p3::spa_ccn_to_nc_factor=1.0
+   ./atmchange physics::mac_aero_mic::p3::spa_ccn_to_nc_exponent=1.0
+   ```
+   This directly isolates whether the CCN→Nc functional form change explains
+   the PW shift.
+
+3. ~~**Autoconversion exponents** (Finding 3)~~: verified — all compile-time constants
+   in v3.0.2 are identical to the new XML defaults. This is **not a source** of the PW difference.
+
+---
+
+## Is large-scale subsidence (`iop_dosubsidence=true`) appropriate for RCE?
+
+**Short answer: for a doubly-periodic domain, no — it is physically
+inconsistent and should generally be disabled.**
+
+### Why subsidence is inconsistent with a doubly-periodic domain
+
+A doubly-periodic domain with uniform SST is a **closed system** in the
+horizontal. By continuity, the domain-mean vertical mass flux must be zero at
+every level:
+
+$$\langle \omega \rangle_\text{domain} = 0$$
+
+Prescribing a non-zero large-scale subsidence velocity $\omega_\text{ls} < 0$
+(downwelling) from the IOP file adds a net downward flux with no compensating
+upwelling anywhere in the domain, violating mass conservation. The model works
+around this by applying the subsidence as a forcing tendency rather than
+modifying the divergence field, but the physical inconsistency remains: the
+prescribed drying from subsidence is uncompensated.
+
+### What the IOP file provides
+
+`RCE_300K_iopfile_4scam.nc` was designed for **SCAM** (Single-Column
+Atmospheric Model) and SCAM-style DP experiments, where a single column
+represents a region embedded in a larger-scale circulation. In that context,
+the prescribed subsidence represents the remote compensating ascent (Walker
+cell, Hadley cell) that balances the column's convection — physically
+meaningful for a single column but not for a domain that should self-determine
+its own circulation.
+
+### Effect of `iop_dosubsidence=true` on RCE
+
+- Imposes a systematic drying (subsiding air is warmer and drier) that biases
+  PW downward regardless of the model's convective state.
+- Suppresses self-organization: prescribed subsidence dries the environment
+  uniformly, competing with the radiative-convective feedback that would
+  naturally produce moist/dry column contrasts through self-aggregation.
+- Makes it harder to diagnose true model behavior — any PW differences between
+  code versions are convolved with the sensitivity of subsidence drying to
+  process order (see Finding 1 above).
+
+### Recommendation
+
+For a clean idealized RCE study:
+```bash
+./atmchange iop_dosubsidence=false
+```
+
+or equivalently, in `namelist_scream.xml`:
+```xml
+<iop_dosubsidence>false</iop_dosubsidence>
+```
+
+With subsidence off, the domain finds its own thermodynamic equilibrium and
+self-aggregation evolves freely. This is the setup used in most CRM and SAM
+RCE studies that serve as the reference for EAMxx comparisons.
+
+If the goal is to mimic a specific large-scale tropical environment (e.g., a
+particular SST regime with known subsidence), keep `iop_dosubsidence=true` but
+be aware that the prescribed forcing will dominate the moisture budget and any
+version sensitivity in PW is likely amplified by the subsidence sensitivity.
