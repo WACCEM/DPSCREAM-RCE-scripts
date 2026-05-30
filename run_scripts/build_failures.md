@@ -16,7 +16,7 @@ The `ksa/uvwinds` branch is a local development branch adding `HorizWindsAtHeigh
 
 ## Prerequisites for Running CIME Build Scripts
 
-**Neither the E3SM unified environment nor a Python module needs to be loaded before running the CIME build scripts.**
+**Load `cray-python/3.11.7` before running any CIME script. Do NOT load the E3SM unified environment.**
 
 ### E3SM unified environment — do NOT load it for building
 
@@ -32,19 +32,71 @@ The unified environment is intended only for post-processing and analysis tools 
 `e3sm_diags`, etc.) — not for compiling the model. The run script comment at line 4 is
 correct: source it **outside** this script in a separate terminal if needed for analysis.
 
-### Python module — not needed
+### Python module — load `cray-python/3.11.7`
 
 All CIME scripts (`case.build`, `case.setup`, `atmchange`, `create_newcase`, etc.) use
-`#!/usr/bin/env python3`, which resolves to the system `/usr/bin/python3` (Python 3.6.15
-on Perlmutter). This is sufficient:
+`#!/usr/bin/env python3`. On Perlmutter the default is `/usr/bin/python3` = **Python
+3.6.15**, which technically runs CIME but causes a significant side effect:
 
-- `case.build --help` and `atmchange --help` both run correctly with no Python module loaded.
-- CIME uses f-strings (available since Python 3.6) but no Python 3.8+ syntax.
-- `import CIME` succeeds under Python 3.6.15.
+> **CIME prints a version warning to stdout** before every command output:
+> ```
+> Python 3.8 is recommended to run CIME. You have 3.6.
+> ```
+> Because this appears on **stdout** (not stderr), it is captured by shell command
+> substitution (`$(...)`), silently polluting variables such as `input_data_dir`.
+> This has caused runtime crashes (`PIO: FATAL ERROR: No such file or directory
+> (file = UNSET)`) by corrupting paths passed to `atmchange`. See the
+> [CIME Python Version Warning](#cime-python-version-warning-and-its-side-effects)
+> section below for full details.
 
-Loading a Python module (e.g. `python/3.13-26.1.0` or `cray-python/3.11.7`) is unnecessary
-and may introduce unexpected environment changes. Simply run the build script with the
-default Perlmutter login environment (plus the `cmake/3.30.2` fix described below).
+**Load `cray-python/3.11.7` before running any CIME command:**
+
+```bash
+module load cray-python/3.11.7
+```
+
+`cray-python/3.11.7` is preferred over `python/3.13-26.1.0` because:
+
+- It uses a native Cray path (`/opt/cray/pe/...`), not conda-managed, so it is not
+  affected by conda environment `$PATH` ordering.
+- It is part of the Cray PE alongside `cray-mpich`, `cray-hdf5-parallel`, etc. that
+  E3SM depends on — fewer interaction risks.
+
+**Do not have any conda environment active** when running CIME commands. If the `ncl`
+conda environment (or any other) is active, deactivate it first:
+
+```bash
+conda deactivate
+module load cray-python/3.11.7
+```
+
+### Loading the module: before the script vs. inside it
+
+On Perlmutter, `BASH_ENV=/opt/cray/pe/lmod/lmod/init/bash` is set in the login
+environment and is inherited by all subprocesses. Bash automatically sources this
+file before running any script, which re-initializes the `module` function. This
+means **`module load ...` works inside bash scripts** invoked with `./script.sh` or
+`bash script.sh` — you do not need to source an lmod init file manually.
+
+However, loading inside the script carries a risk: all CIME run scripts begin with
+`set -e`. If the module load fails for any reason (e.g., a module conflict like the
+`cpe/25.09` + `cray-hdf5` issue documented in this file), `set -e` causes the entire
+script to abort immediately with no further output. Contrast this with scripts that
+lack `set -e` (such as `nco/NCOregrid_singlefile.sh`) — there, a failed `module load`
+is silently ignored and the script continues.
+
+**Recommended workflow**: load the module in your interactive shell before running
+the script. This separates the environment setup from the script logic and makes
+failures visible:
+
+```bash
+# In your interactive shell — before running the script:
+module load cray-python/3.11.7
+./run_RCE08_dx3km_gpu.sh
+```
+
+The run scripts show the `module load` command as a comment near the top
+(e.g., `# module load cray-python/3.11.7`) as a reminder to do this beforehand.
 
 ---
 
@@ -514,6 +566,10 @@ This fix also makes the code robust for any future Python environment where
 **Date**: 2026-05-18  
 **Machine**: Perlmutter (`pm-gpu`/`pm-cpu`), NERSC
 
+> **Summary**: Always load `cray-python/3.11.7` before running any CIME command.
+> See the [Prerequisites](#prerequisites-for-running-cime-build-scripts) section
+> at the top for the recommended setup. The details below explain why this matters.
+
 ### The Warning
 
 When any CIME command (`xmlquery`, `xmlchange`, `atmchange`, `case.setup`, etc.) runs
@@ -600,17 +656,18 @@ warning. Confirmed behavior on Perlmutter (tested 2026-05-18):
   Python 3.12.2 (or whichever version the env uses) as the effective interpreter.
   `cray-python` is not susceptible to this conflict.
 
-### Interaction With the user-created Conda Environment
+### Interaction With the User-Created Conda Environment
 
-Conda environment generated by the user, such as the `ncl` conda environment (`ksa_env/conda/ncl`) prepends its `bin/` to `$PATH` when activated via `conda activate ncl`. This overrides `python3` regardless of
-which module is loaded (unless `cray-python` is loaded **after** the conda activation,
-in which case module PATH takes precedence on most systems — but this is fragile).
+Conda environments (such as the `ncl` env at `ksa_env/conda/ncl`) prepend their
+`bin/` to `$PATH` when activated via `conda activate ncl`. This overrides `python3`
+regardless of which module is loaded (unless `cray-python` is loaded **after** the
+conda activation — but this ordering is fragile).
 
 **Best practice**: do not have any conda environment active when running
 `case.setup`, `case.build`, or any other CIME command. Deactivate first:
 ```bash
 conda deactivate
-module load cray-python/3.11.7   # optional — suppresses the warning
+module load cray-python/3.11.7
 ```
 If you need the `ncl` conda environment for analysis tools in the same session,
 run CIME commands first, then activate the conda env afterward.

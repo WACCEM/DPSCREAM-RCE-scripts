@@ -814,7 +814,7 @@ So the effective TSI differs dramatically between the two runs:
 | Run | Solar irradiance | How determined |
 |-----|-----------------|---------------|
 | RCE01 (old code) | **~1360.9 W/m²** (full TSI × eccf) | `tsi_default` from RRTMGP file, orbit-based scaling |
-| RCE02 (new code) | **551.58 W/m²** (fixed) | `fixed_total_solar_irradiance` in YAML |
+| RCE02 (new code) | **551.58 W/m²** (fixed) | `fixed_total_solar_irradiance` in YAML (same as RCEMIP)|
 
 551.58 / 1360.86 = **40.5%** of the full solar constant. This is a **large difference
 in net shortwave forcing** that directly affects the radiative-convective equilibrium
@@ -923,3 +923,502 @@ If the goal is to mimic a specific large-scale tropical environment (e.g., a
 particular SST regime with known subsidence), keep `iop_dosubsidence=true` but
 be aware that the prescribed forcing will dominate the moisture budget and any
 version sensitivity in PW is likely amplified by the subsidence sensitivity.
+
+---
+
+## RCEMIP Radiation Parameter Compliance
+
+This section checks whether the EAMxx DP-SCREAM RCE configuration (`FRCE-SCREAMv1-DP` compset)
+matches the radiation parameters specified by the RCE Model Intercomparison Project (RCEMIP)
+protocol (Wing et al. 2018, *Geosci. Model Dev.*, 11, 793–813,
+https://gmd.copernicus.org/articles/11/793/2018/).
+
+**Source files checked:**
+- `components/eamxx/cime_config/namelist_defaults_eamxx.xml` (lines 505–534)
+- `components/eamxx/src/physics/rrtmgp/eamxx_rrtmgp_process_interface.cpp` (lines 477–484)
+- `components/eamxx/cime_config/usermods_dirs/rcemip/user_nl_cpl`
+- Actual case namelist: `/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE02_dx3km_gpu/case_scripts/namelist_scream.xml`
+
+### Parameters that match RCEMIP ✅
+
+| Parameter | RCEMIP value | EAMxx (RCE case) | Where set |
+|---|---|---|---|
+| CO2 concentration | 348 ppmv | **348.0e-6** | `<co2vmr COMPSET=".*SCREAM%RCE.*">348.0e-6</co2vmr>` in `namelist_defaults_eamxx.xml` |
+| CH4 concentration | 1650 ppbv | **1650.e-9** | `<ch4vmr COMPSET=".*SCREAM%RCE.*">1650.e-9</ch4vmr>` |
+| N2O concentration | 306 ppbv | **306.0e-9** | `<n2ovmr COMPSET=".*SCREAM%RCE.*">306.0e-9</n2ovmr>` |
+| CFC11 concentration | 0 | **0.0** | `<f11vmr COMPSET=".*SCREAM%RCE.*">0.0</f11vmr>` |
+| CFC12 concentration | 0 | **0.0** | `<f12vmr COMPSET=".*SCREAM%RCE.*">0.0</f12vmr>` |
+| CFC22 concentration | 0 | **effectively 0** | Not in `active_gases` list; no `f22vmr` parameter exists in EAMxx |
+| CCL4 concentration | 0 | **effectively 0** | Not in `active_gases` list; not modeled |
+| Solar constant | 551.58 W m⁻² | **551.58** | `<fixed_total_solar_irradiance COMPSET=".*SCREAM%RCE.*">551.58</fixed_total_solar_irradiance>` |
+| Zenith angle | 42.05° | **42.05** | `constant_zenith_deg = 42.05` in `usermods_dirs/rcemip/user_nl_cpl` |
+| Surface albedo (direct & diffuse) | 0.07 | **0.07** | `seq_flux_mct_albdif = 0.07`, `seq_flux_mct_albdir = 0.07` in `usermods_dirs/rcemip/user_nl_cpl` |
+
+The compset long name `2000_SCREAM%RCE_SLND_SICE_DOCN%AQPCONST_SROF_SGLC_SWAV_SIAC_SESP%DP-EAMxx`
+contains `SCREAM%RCE`, which activates all the conditional `COMPSET=".*SCREAM%RCE.*"` overrides in
+`namelist_defaults_eamxx.xml`. The rcemip usermod (`usermods_dirs/rcemip/`) is applied at case
+creation and provides the orbital and surface boundary conditions.
+
+### Parameter that does NOT follow RCEMIP ⚠️
+
+| Parameter | RCEMIP specification | EAMxx (RCE case) |
+|---|---|---|
+| O3 profile (g1, g2, g3) | Analytic formula $O_3(p) = g_1\, p^{g_2}\, e^{-p/g_3}$ with g1 = 3.6478 ppmv hPa⁻ᵍ², g2 = 0.83209, g3 = 11.3515 hPa | **Not implemented.** Ozone is read from the global IC file `screami_ne30np4L128_20221004.nc` (2010 F2010 climatology) and held fixed throughout the run. |
+
+The RCEMIP analytic ozone profile parameters (g1, g2, g3) do not appear anywhere in the EAMxx
+codebase. The `o3_volume_mix_ratio` field is initialized from the standard ne30np4 global IC file
+at the nearest equatorial column (lat ≈ 0°, lon ≈ 0°) and is not modified during the simulation.
+This profile differs from the RCEMIP prescription, which specifies a smooth analytical function
+of pressure designed to represent a tropical mean ozone climatology. The two profiles may agree
+well in the lower-to-mid troposphere but can differ in the stratosphere, which affects longwave
+cooling near the model top.
+
+---
+
+## RCEMIP Geophysical Constants Compliance
+
+This section checks the geophysical/thermodynamic constants used by EAMxx against
+the values prescribed by the RCEMIP protocol (Wing et al. 2018, Table 1).
+
+**Source files checked:**
+- `components/eamxx/src/physics/share/physics_constants.hpp` — primary C++ constants for P3, SHOC, RRTMGP
+- `share/util/shr_const_mod.F90` — shared E3SM constants (used by HOMME dynamics in coupled mode)
+- `components/homme/src/share/physical_constants.F90` — HOMME dynamics constants (standalone values, overridden by CAM/shr values in coupled runs)
+
+### Earth rotation rate and Coriolis parameter
+
+| Parameter | RCEMIP | EAMxx | Notes |
+|---|---|---|---|
+| Earth rotation rate Ω | 0 | **7.292×10⁻⁵ rad/s** (`SHR_CONST_OMEGA` = 2π/86164 s) | Not set to zero; see discussion below |
+| Coriolis parameter f | 0 | **0 (effectively)** | f = 2Ω sin(lat) = 2×7.292×10⁻⁵×sin(0°) = **0** at target lat=0° |
+
+The code does **not** set Ω = 0 for the RCE case. Instead, f = 0 is achieved
+naturally because the doubly-periodic domain is centred on the equator
+(`target_latitude = 0.0`). In HOMME's `cube_mod.F90`, the Coriolis parameter at
+each GLL point is initialised as:
+```fortran
+elem%fcor(i,j) = 2.0D0 * omega * SIN(elem%spherep(i,j)%lat)
+```
+Since all points in the domain project to lat ≈ 0, `fcor = 0` throughout.
+Additionally, the `iop_coriolis` flag (which controls Coriolis-based geostrophic
+nudging in the IOP-forcing process) is set to `false` for the RCE case.
+The RCEMIP intent (f = 0 everywhere) is therefore satisfied, even though Ω itself
+is non-zero in the code.
+
+### Thermodynamic and geometric constants
+
+| Parameter | RCEMIP | EAMxx value | Source | Match? |
+|---|---|---|---|---|
+| Mean Earth radius R_E | 6371.0 km | **6371.22 km** | `SHR_CONST_REARTH = 6.37122e6 m` | ≈ (+0.22 km, 0.003%) |
+| Surface gravity g | 9.79764 m s⁻² | **9.80616 m s⁻²** | `SHR_CONST_G = 9.80616` / `physics_constants.hpp: gravit = 9.80616` | ✗ (+0.00852, **+0.087%**) |
+| Dry-air gas constant R_d | 287.04 J kg⁻¹ K⁻¹ | **287.042 J kg⁻¹ K⁻¹** | `SHR_CONST_RDAIR` = 8314.47/28.966; `Rair = 287.042` | ≈ (+0.002, 0.001%) |
+| Dry-air specific heat C_pd | 1004.64 J kg⁻¹ K⁻¹ | **1004.64 J kg⁻¹ K⁻¹** | `SHR_CONST_CPDAIR = 1.00464e3`; `Cpair = 1004.64` | ✅ exact |
+| Water vapor gas constant R_v | 461.50 J kg⁻¹ K⁻¹ | **461.505 J kg⁻¹ K⁻¹** | `SHR_CONST_RWV` = 8314.47/18.016; `RH2O = 461.505` | ≈ (+0.005, 0.001%) |
+| Water vapor specific heat C_pv | 1846.0 J kg⁻¹ K⁻¹ | **1810.0 J kg⁻¹ K⁻¹** | `SHR_CONST_CPWV = 1.810e3` | ✗ (−36, **−1.95%**) |
+| Latent heat of vaporization L_v0 | 2.501×10⁶ J kg⁻¹ | **2.501×10⁶ J kg⁻¹** | `SHR_CONST_LATVAP = 2.501e6`; `LatVap = 2501000.0` | ✅ exact |
+| Latent heat of fusion L_f0 | 3.337×10⁵ J kg⁻¹ | **3.337×10⁵ J kg⁻¹** | `SHR_CONST_LATICE = 3.337e5`; `LatIce = 333700.0` | ✅ exact |
+| Latent heat of sublimation L_s0 | 2.834×10⁶ J kg⁻¹ | **2.8347×10⁶ J kg⁻¹** | `SHR_CONST_LATSUB = LATICE + LATVAP = 2834700` | ≈ (+700, 0.025%; within RCEMIP's 4-sig-fig rounding) |
+
+### Summary
+
+**Constants that match RCEMIP (exact or negligible difference):**
+- C_pd = 1004.64 J/kg/K ✅
+- L_v0 = 2.501×10⁶ J/kg ✅
+- L_f0 = 3.337×10⁵ J/kg ✅
+- L_s0 = 2.8347×10⁶ J/kg ≈ 2.834×10⁶ (within rounding) ✅
+- R_d = 287.042 vs 287.04 (0.001% — negligible) ≈
+- R_v = 461.505 vs 461.50 (0.001% — negligible) ≈
+- Coriolis f = 0 ✅ (achieved via equatorial latitude, not by setting Ω = 0)
+- R_E = 6371.22 vs 6371.0 km (0.003% — negligible) ≈
+
+**Constants that differ from RCEMIP:**
+- **g = 9.80616 vs 9.79764 m/s²** — difference of +0.087%. EAMxx uses the standard
+  WMO/IAU mean surface gravity (9.80616 m/s²), while RCEMIP specifies a slightly lower
+  value (closer to the tropical mean). This will affect the pressure-height relationship
+  throughout the column and is the most consequential constant deviation.
+- **C_pv = 1810 vs 1846 J/kg/K** — difference of −1.95%. The shared E3SM constant
+  `SHR_CONST_CPWV = 1.810e3 J/kg/K` is a standard meteorological value; RCEMIP
+  uses a slightly higher value. Note that `C_pv` is **not** directly referenced in
+  EAMxx's C++ physics (it is absent from `physics_constants.hpp`); it appears only in
+  the Fortran ZM deep-convection bridge (`zm_eamxx_bridge_physconst.F90`). The P3 and
+  SHOC microphysics/turbulence schemes do not use C_pv explicitly, so the practical
+  impact is limited to ZM, which is not active in the standard RCE compset.
+
+### Source-code evidence
+
+```
+# Gravity and Earth radius (coupled/CAM mode):
+share/util/shr_const_mod.F90:
+  SHR_CONST_G      = 9.80616      ! m/s²
+  SHR_CONST_REARTH = 6.37122e6    ! m
+
+# Gravity and latent heats (EAMxx C++ physics):
+components/eamxx/src/physics/share/physics_constants.hpp:
+  gravit  = 9.80616
+  LatVap  = 2501000.0    (= 2.501e6)
+  LatIce  = 333700.0     (= 3.337e5)
+  Cpair   = 1004.64
+  Rair    = 287.042
+  RH2O    = 461.505
+
+# Water vapor Cpv (Fortran shared):
+share/util/shr_const_mod.F90:
+  SHR_CONST_CPWV   = 1.810e3      ! J/kg/K  (RCEMIP: 1846)
+
+# Earth rotation rate (used in fcor = 2*omega*sin(lat)):
+share/util/shr_const_mod.F90:
+  SHR_CONST_OMEGA  = 2π / 86164.0 = 7.292e-5 rad/s
+components/homme/src/share/physical_constants.F90:
+  omega0 = 7.292e-5                ! s⁻¹
+  g      = 9.80616                 ! m/s²  (standalone; overridden by shr in coupled mode)
+  Rwater_vapor = 461.50            ! J/kg/K (standalone)
+  Cpwater_vapor = 1870.0           ! J/kg/K (standalone; irrelevant in coupled mode)
+```
+
+---
+
+## RCEMIP Aerosol Compliance
+
+The RCEMIP protocol states:
+> "Aerosol effects are to be ignored by zeroing the aerosol concentrations. In some GCMs,
+> aerosol effects may be ignored by excluding aerosol from the radiative transfer calculation
+> and fixing the cloud droplet number concentration (we suggest N_c = 1.0×10⁸ m⁻³) and
+> ice crystal number concentration (we suggest N_i = 1.0×10⁵ m⁻³) within the microphysics
+> parameterizations."
+
+**EAMxx has a dedicated `noAero` mechanism** (compset suffix `SCREAM.*noAero`) that removes
+SPA from the physics list and disables aerosol radiative effects. The standard RCE compset
+`SCREAM%RCE` does **not** invoke this mechanism.
+
+### Aerosol treatment in the actual case (RCE02_dx3km_gpu)
+
+The generated `namelist_scream.xml` shows:
+
+```xml
+<mac_aero_mic>
+  <atm_procs_list>tms,shoc,cld_fraction,spa,p3</atm_procs_list>
+  <spa>
+    <spa_data_file>.../spa_file_unified_and_complete_ne30pg2_20240111.nc</spa_data_file>
+  </spa>
+  <do_prescribed_ccn>true</do_prescribed_ccn>
+  <do_predict_nc>true</do_predict_nc>
+  <spa_ccn_to_nc_factor>2000.0</spa_ccn_to_nc_factor>
+  <spa_ccn_to_nc_exponent>0.55</spa_ccn_to_nc_exponent>
+</mac_aero_mic>
+<do_aerosol_rad>true</do_aerosol_rad>
+```
+
+### 1. Aerosol effects in radiative transfer
+
+| RCEMIP | EAMxx | Compliant? |
+|---|---|---|
+| Exclude aerosols from radiation (zero concentrations or bypass) | `do_aerosol_rad = true`; SPA active with ne30pg2 climatology | ❌ |
+
+The Simple Prescribed Aerosol (SPA) process reads from `spa_file_unified_and_complete_ne30pg2_20240111.nc`
+and provides five fields to RRTMGP each timestep:
+- `nccn` — cloud condensation nuclei number concentration
+- `aero_tau_sw` — SW aerosol optical depth (14 bands)
+- `aero_ssa_sw` — SW single-scattering albedo
+- `aero_g_sw` — SW asymmetry factor
+- `aero_tau_lw` — LW aerosol optical depth (16 bands)
+
+Because `do_aerosol_rad = true`, these optical properties enter the SW and LW radiative transfer
+calculations directly in RRTMGP. This is non-compliant with RCEMIP, which requires aerosol
+effects to be absent from radiation.
+
+The `noAero` compsets available in EAMxx (`SCREAM.*noAero`) set `do_aerosol_rad = false` and
+remove SPA from the physics process list. The RCEMIP compset `SCREAM%RCE` does not inherit
+these settings.
+
+### 2. Cloud droplet number concentration N_c
+
+| RCEMIP | EAMxx | Compliant? |
+|---|---|---|
+| Fixed N_c = 1.0×10⁸ m⁻³ (suggested) | Prognostic, SPA-driven: N_c = max(N_c, 2000 × CCN^0.55) | ❌ |
+
+With `do_prescribed_CCN = true` and `do_predict_nc = true`, the P3 code (in
+`p3_main_impl_part1.hpp`) sets:
+```cpp
+// From p3_main_impl_part1.hpp:
+// Nc = max ( Nc , spa_ccn_to_nc_factor * (nccn_prescribed / inv_cld_frac_l) ^ spa_ccn_to_nc_exponent )
+auto nccn_scaled = nccn_prescribed(k) / inv_cld_frac_l(k);
+nccn_scaled = pow(nccn_scaled, spa_ccn_to_nc_exponent);  // ^ 0.55
+nc(k).set(not_drymass, max(nc(k), spa_ccn_to_nc_factor * nccn_scaled));  // × 2000
+```
+
+N_c is therefore a spatially varying, aerosol-climatology-driven quantity — not a fixed constant.
+
+If both flags were false (no SPA, no prediction), the fallback would be the constant
+`NCCNST = 200×10⁶ m⁻³` (`physics_constants.hpp` line 82), but this also differs from
+RCEMIP's suggested 1.0×10⁸ m⁻³.
+
+### 3. Ice crystal number concentration N_i
+
+| RCEMIP | EAMxx | Compliant? |
+|---|---|---|
+| Fixed N_i = 1.0×10⁵ m⁻³ (suggested) | Prognostic via Cooper formula; hard cap `max_total_ni = 740×10³ m⁻³` | ❌ |
+
+Ice nucleation in P3 (`p3_ice_nucleation_impl.hpp`) selects its branch based on
+`do_log = (!do_predict_nc || do_prescribed_CCN)`. For the RCE case:
+```
+do_log = (!true || true) = true
+```
+This activates the Cooper-based nucleation formula: `ni_activated` is the temperature-dependent
+DeMott/Cooper activated fraction, and `ni_nucleat_tend = max(0, (ni_activated - ni) / dt)`.
+The total ice number is capped by `max_total_ni = 740×10³ m⁻³` (namelist default), which is
+much larger than RCEMIP's suggested 1.0×10⁵ m⁻³.
+
+Note: the deposition nucleation branch (used when `do_predict_nc=true AND do_prescribed_CCN=false`)
+does enforce an internal cap of `1.0×10⁵/ρ` (#/kg), which converts to ~1.0×10⁵ m⁻³ at ρ ≈ 1 kg/m³ —
+coinciding with the RCEMIP suggestion — but this branch is NOT reached in the RCE configuration.
+
+### Summary
+
+| Component | RCEMIP requirement | EAMxx RCE setting | Match? |
+|---|---|---|---|
+| Aerosol optical effects in radiation | Off (zero/excluded) | **On** (`do_aerosol_rad = true`) | ❌ |
+| SPA aerosol process | Absent or zero | **Active**, ne30pg2 climatology | ❌ |
+| N_c cloud droplet number | Fixed 1.0×10⁸ m⁻³ | **Prognostic**, SPA-driven via 2000×CCN^0.55 | ❌ |
+| N_i ice crystal number | Fixed 1.0×10⁵ m⁻³ | **Prognostic**, Cooper formula, cap 740×10³ m⁻³ | ❌ |
+| Heterogeneous freezing (aerosol-based) | Off | `use_hetfrz_classnuc = false` | ✅ |
+
+EAMxx's RCE configuration does **not** follow the RCEMIP aerosol protocol.
+A compliant configuration would require switching to the `noAero`-style setup:
+- Set `do_aerosol_rad = false`
+- Remove `spa` from the physics process list (or use a zero-aerosol SPA file)
+- Set `do_prescribed_CCN = false` and `do_predict_nc = false` to activate the
+  fallback constant `NCCNST` (currently 200×10⁶ m⁻³; the RCEMIP-recommended
+  1.0×10⁸ m⁻³ could be set via `atmchange` if desired)
+
+---
+
+## noAero Configuration: RCE08_dx3km_gpu
+
+`run_RCE08_dx3km_gpu.sh` implements the `noAero`-style setup to match RCEMIP aerosol compliance.
+The following `atmchange` calls were added at the end of the `edit_atmconf` block:
+
+```bash
+# noAero configuration: mirrors the SCREAM.*noAero compsets for RCEMIP aerosol compliance.
+# 1. Remove 'spa' from the mac_aero_mic process list so no aerosol climatology is read.
+./atmchange physics::mac_aero_mic::atm_procs_list=tms,shoc,cld_fraction,p3
+# 2. Disable aerosol optical properties in RRTMGP radiative transfer.
+./atmchange physics::rrtmgp::do_aerosol_rad=false
+# 3. Switch P3 from SPA-driven prognostic N_c to the fallback constant NCCNST.
+./atmchange physics::mac_aero_mic::p3::do_prescribed_ccn=false
+./atmchange physics::mac_aero_mic::p3::do_predict_nc=false
+# 4. Set NCCNST to the RCEMIP-recommended 1.0e8 m^-3 (default is 200e6 m^-3).
+./atmchange physics::mac_aero_mic::p3::NCCNST=1.0e8
+```
+
+| `atmchange` call | Effect |
+|---|---|
+| `physics::mac_aero_mic::atm_procs_list=tms,shoc,cld_fraction,p3` | Removes `spa` from the process list — no aerosol climatology file is read |
+| `physics::rrtmgp::do_aerosol_rad=false` | Passes zero aerosol optical properties to RRTMGP (SW+LW) |
+| `physics::mac_aero_mic::p3::do_prescribed_ccn=false` | Stops P3 from pulling CCN from SPA |
+| `physics::mac_aero_mic::p3::do_predict_nc=false` | Deactivates prognostic N_c; falls back to constant `NCCNST` |
+| `physics::mac_aero_mic::p3::NCCNST=1.0e8` | Sets constant N_c = 1.0×10⁸ m⁻³ (RCEMIP-recommended; default is 2.0×10⁸ m⁻³) |
+
+Because `spa` is removed from `atm_procs_list`, no valid `spa_data_file` is needed — the `spa`
+parameter block is ignored entirely. The `compute_tendencies` calls for `shoc` and `p3` in the
+`edit_output` block are unaffected.
+
+---
+
+## N_i Ice Crystal Number: RCEMIP Compliance and `max_total_ni`
+
+The RCEMIP protocol suggests fixing N_i = 1.0×10⁵ m⁻³. Unlike N_c (which falls back to the
+compile-time constant `NCCNST` when `do_predict_nc=false`), ice crystal number in the noAero
+configuration is controlled by **two separate mechanisms**.
+
+### Ice nucleation branch active in noAero
+
+In the noAero setup (`do_predict_nc=false`, `do_prescribed_ccn=false`), the logical
+`do_log = (!do_predict_nc || do_prescribed_CCN) = true`, which activates the **deposition
+nucleation branch** in `p3_ice_nucleation_impl.hpp`:
+
+```cpp
+dum = 0.005 * exp(deposition_nucleation_exponent * (Tmelt - T)) * 1.0e3 * inv_rho;
+dum = min(dum, 1.0e5 * inv_rho);   // hard-coded nucleation cap ≈ 1.0e5 m⁻³
+N_nuc = max(0, (dum - ni) * inv_dt);
+```
+
+The hard-coded `min(dum, 1.0e5 * inv_rho)` cap means nucleation tendencies are already limited
+to ~1.0×10⁵ m⁻³ at ρ ≈ 1 kg/m³ — coincidentally matching the RCEMIP suggestion.
+
+### `max_total_ni` — the broader safety limiter
+
+`max_total_ni` is a separate, stronger cap applied by `impose_max_total_ni` **throughout the
+microphysics loop**, capping the total in-cloud ice number from *all* sources (nucleation,
+heterogeneous freezing, rime splintering, aggregation). It is a member of `P3Runtime` and is
+**accessible via `atmchange`**:
+
+| Parameter | Default | Source |
+|---|---|---|
+| `max_total_ni` | **740.0×10³ m⁻³** | `P3Runtime` struct, `p3_functions.hpp` line 113 |
+
+The default 740×10³ m⁻³ is ~7× larger than the RCEMIP-recommended 1.0×10⁵ m⁻³. Without
+changing it, secondary ice production processes could build N_i well above the RCEMIP target.
+
+### Fix applied in `run_RCE08_dx3km_gpu.sh`
+
+The following `atmchange` call was added (step 5 of the noAero block):
+
+```bash
+./atmchange physics::mac_aero_mic::p3::max_total_ni=1.0e5
+```
+
+This sets the overall in-cloud ice number cap to 1.0×10⁵ m⁻³, consistent with RCEMIP.
+The nucleation branch cap and `max_total_ni` are now both at 1.0×10⁵ m⁻³.
+
+### Complete updated noAero block
+
+```bash
+# noAero configuration: mirrors the SCREAM.*noAero compsets for RCEMIP aerosol compliance.
+# 1. Remove 'spa' from the mac_aero_mic process list so no aerosol climatology is read.
+./atmchange physics::mac_aero_mic::atm_procs_list=tms,shoc,cld_fraction,p3
+# 2. Disable aerosol optical properties in RRTMGP radiative transfer.
+./atmchange physics::rrtmgp::do_aerosol_rad=false
+# 3. Switch P3 from SPA-driven prognostic N_c to the fallback constant NCCNST.
+./atmchange physics::mac_aero_mic::p3::do_prescribed_ccn=false
+./atmchange physics::mac_aero_mic::p3::do_predict_nc=false
+# 4. NCCNST (N_c constant fallback) is set via SourceMods/physics_constants.hpp (compile-time).
+#    Target: 1.0e8 m^-3 (RCEMIP-recommended; default is 200e6 m^-3).
+# 5. Cap total in-cloud ice number at the RCEMIP-recommended 1.0e5 m^-3.
+#    The deposition nucleation branch (active when do_predict_nc=false) already has a
+#    hard-coded nucleation cap of 1.0e5*inv_rho, but max_total_ni is the broader limiter
+#    applied throughout the microphysics loop (default is 740e3 m^-3).
+./atmchange physics::mac_aero_mic::p3::max_total_ni=1.0e5
+```
+
+### Updated compliance summary
+
+| Component | RCEMIP requirement | RCE08 setting | Match? |
+|---|---|---|---|
+| Aerosol optical effects in radiation | Off | `do_aerosol_rad=false` | ✅ |
+| SPA aerosol process | Absent | Removed from `atm_procs_list` | ✅ |
+| N_c cloud droplet number | Fixed 1.0×10⁸ m⁻³ | `NCCNST=1.0e8` via SourceMods | ✅ |
+| N_i ice crystal number | Fixed 1.0×10⁵ m⁻³ | Deposition nucleation cap ~1.0×10⁵ m⁻³ (hard-coded) + `max_total_ni=1.0e5` | ✅ |
+| Heterogeneous freezing | Off | `use_hetfrz_classnuc=false` (default) | ✅ |
+
+---
+
+## Verifying N_c and N_i in Model Output
+
+Both `nc` (cloud droplet number) and `ni` (ice crystal number) are **already included** in
+the configured output stream `scream_test2_output_inst_1hour.yaml` under the `# P3` block.
+No changes to the yaml files or run script are needed to access them.
+
+### Output field names and units
+
+| Variable | Field name | Units | Output stream |
+|---|---|---|---|
+| Cloud droplet number | **`nc`** | #/kg | `scream_test2_output_inst_1hour.yaml` |
+| Ice crystal number | **`ni`** | #/kg | `scream_test2_output_inst_1hour.yaml` |
+| Rain drop number | `nr` | #/kg | `scream_test2_output_inst_1hour.yaml` |
+| Liquid effective radius | `eff_radius_qc` | µm | Commented out; add if needed |
+| Ice effective radius | `eff_radius_qi` | µm | Commented out; add if needed |
+
+Both fields are in **mixing ratio units** (#/kg). To convert to number concentration (#/m³)
+for comparison with RCEMIP target values, multiply by air density ρ:
+
+$$N_c \ [\text{m}^{-3}] = \texttt{nc} \times \rho, \qquad \rho = \frac{p}{R_d T}$$
+
+At typical lower-tropospheric conditions (ρ ≈ 1 kg/m³), `nc` [#/kg] ≈ N_c [#/m³] numerically.
+
+### What to look for
+
+**For N_c** — with `do_predict_nc=false` and `NCCNST=1.0e8 m⁻³` set via SourceMods,
+`nc` should be spatially uniform wherever cloud liquid is present (`qc > 0`), equal to
+`NCCNST × inv_rho`. Any spatial variability or values inconsistent with 1.0×10⁸ m⁻³ × inv_rho
+would indicate the prognostic path is still active.
+
+**For N_i** — with `max_total_ni=1.0e5 m⁻³`, `ni × ρ` should never exceed 1.0×10⁵ m⁻³
+anywhere in the domain. Check the domain maximum.
+
+## Why N_i Cannot Be Fixed Like N_c in P3
+
+### Why fixing N_c works
+
+In the 1-moment P3 code (`module_mp_p3.f95`, line 1824), `nc` is literally overwritten at every time step:
+
+```fortran
+if (.not.(log_predictNc)) then
+    nc(i,k) = nccnst * inv_rho(i,k)   ! reset every time step
+endif
+```
+
+This is physically defensible because:
+
+1. Cloud droplets are activated from CCN at cloud base and the CCN spectrum is approximately fixed for a given environment.
+2. Droplets don't multiply — coalescence removes drops but doesn't create them; evaporation at grid-cell scale zeroes N_c together with q_c anyway.
+3. The only source is activation, which is well-approximated by a constant for bulk schemes without interactive aerosols.
+
+### Why the same approach fails for N_i
+
+Ice number evolves through at least **six distinct processes** in P3, all updating `nitot` within a single call to `p3_main` (`module_mp_p3.f95`, lines 3261–3263):
+
+```fortran
+nitot(i,k,iice) = nitot(i,k,iice) + (ninuc(iice)   ! + deposition/cond-freezing nucleation
+                                    - nimlt(iice)   ! - melting (ice→rain)
+                                    - nisub(iice)   ! - sublimation
+                                    - nislf(iice)   ! - self-aggregation
+                                    + nrhetc(iice)  ! + heterogeneous freezing of rain
+                                    + nrheti(iice)  ! + (rain)
+                                    + nchetc(iice)  ! + heterogeneous freezing of cloud
+                                    + ncheti(iice)  ! + (cloud)
+                                    + nimul(iice)   ! + Hallett-Mossop rime splintering
+                                    ) * dt
+```
+
+| Process | What it does to N_i | Why resetting fails |
+|---|---|---|
+| **Deposition/condensation-freezing nucleation** (`ninuc`) | Temperature-dependent: Cooper formula gives ~10² m⁻³ at −10 °C but ~10⁶ m⁻³ at −40 °C | Resetting would either starve nucleation at cold T or overseed at warm T |
+| **Hallett-Mossop rime splintering** (`nimul`, line 2577) | Can multiply N_i by ×100–1000 in the −3 to −8 °C zone | Secondary production is a burst — resetting destroys the causal chain |
+| **Self-aggregation** (`nislf`, line 2317) | Reduces N_i as crystals stick together; rate ∝ N_i² | Resetting upward makes aggregation unrealistically fast; downward misrepresents large-crystal populations |
+| **Melting** (`nimlt`, line 2340) | N_i tendency proportional to q_imlt/q_itot — particle size matters | Resetting conflates number with mass ratio |
+| **Sublimation** (`nisub`) | Removes the smallest crystals preferentially | Has memory: large anvil crystals persist long after convection ends |
+| **Heterogeneous freezing** (`nrhetc/i`, `nchetc/i`) | Freezing of rain/cloud drops creates ice; rate depends on liquid number and temperature | Sources are unrelated to the ice number itself |
+
+### The deeper physical reason: ice has "memory" but droplets don't
+
+Cloud droplets at a given grid point are essentially **locally produced** (activated from below) and **locally consumed** (evaporate when q_c → 0). Their number returns to a predictable value whenever they reform.
+
+Ice crystals, by contrast, are **advected** from their nucleation location, **grow for hours** through deposition in the anvil, **sediment** downward through layers, and can **persist long after the convection that created them is gone**. Fixing N_i would destroy this history: a spreading cirrus anvil with 10² m⁻³ large crystals would be incorrectly "corrected" to 10⁵ m⁻³ tiny ones every timestep, making the ice radiative properties and precipitation completely wrong.
+
+### What `max_total_ni` does instead (the correct approach)
+
+Rather than fixing N_i (which would break the physics), `impose_max_total_Ni` (`module_mp_p3.f95`, lines 6288–6310) **caps** the total ice number across all categories by proportionally scaling down each category when the sum exceeds the limit:
+
+```fortran
+dum = max_total_Ni * inv_rho_local / sum(nitot_local(:))
+! if sum > max, scale all categories by dum < 1
+```
+
+This limits unrealistic explosive nucleation events (e.g., homogeneous freezing producing 10⁷ m⁻³) without forcing a fixed value — all the *relative* evolution (aggregation, melting, advection) continues physically. The RCEMIP value of 1×10⁵ m⁻³ is appropriate as a **cap** (maximum upper bound), not a baseline reset, which is why it is the approach used in both PINACLES and EAMxx.
+
+---
+
+### Quick verification commands
+
+```bash
+# domain-mean nc (should be ~1e8 * inv_rho; at surface ρ≈1.2, nc_mean ≈ 8.3e7 kg⁻¹)
+ncap2 -s 'nc_dommean=nc.avg($ncol,$lev)' -v output.nc check_nc.nc
+
+# domain max ni (should not exceed ~1e5 * inv_rho ≈ 8.3e4 kg⁻¹ at surface)
+ncap2 -s 'ni_max=ni.max($ncol,$lev)' -v output.nc check_ni.nc
+
+# or with nco directly on first timestep:
+ncks -v nc,ni -d time,0 output.nc | head -40
+```
+
+For a more complete check, compute column-mean or level-mean values using Python/xarray:
+
+```python
+import xarray as xr
+ds = xr.open_dataset("output.nc")
+rho = ds.p_mid / (287.042 * ds.T_mid)   # dry air density [kg/m³]
+Nc_conc = ds.nc * rho                    # convert to #/m³
+Ni_conc = ds.ni * rho
+print(f"N_c mean: {Nc_conc.mean().item():.3e} m⁻³  (target: 1.0e8)")
+print(f"N_i max:  {Ni_conc.max().item():.3e} m⁻³  (target: ≤1.0e5)")
+```
