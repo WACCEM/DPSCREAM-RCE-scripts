@@ -25,7 +25,7 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE01_dx1km_gpu_branch"
+icase      = "RCE02_dx3km_gpu"
 varname    = "imse"
 
 # File naming parameters
@@ -36,16 +36,16 @@ file_type="proc" # 'raw' for the direct model output, or 'proc' for post-process
    #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
 frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct the file name pattern for searching the input files to be concatenated
 
-in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
+#in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
 #in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/freq_change")
-#in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 
 
 # Output directory (created if it does not already exist)
 out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
-ts_start = "2000-02-17"
+ts_start = "2000-01-01"
 ts_end   = "2000-04-30"
 
 # %%
@@ -55,8 +55,8 @@ ts_end   = "2000-04-30"
 # desired regular Cartesian destination grid.
 remap_method = "patch"
 weightdir  = "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/"
-srcgrid = "DPSCREAM_RCE_dx1km_600x600km"
-dstgrid = "PINACLES_YX_dx1km_600x600km"
+srcgrid = "DPSCREAM_RCE_dx3km_600x600km"
+dstgrid = "PINACLES_YX_dx3km_600x600km"
 weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
 
 # Destination grid spacing in metres – used to compute Cartesian x/y
@@ -64,6 +64,8 @@ weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
 dst_dx = 1500.0 #1,500m for physics grid of the 1km simulation
 if(dstgrid == "PINACLES_YX_dx1km_600x600km"):
     dst_dx = 1000.0 #1,000m for PINACLES 1km grid
+elif(dstgrid == "PINACLES_YX_dx3km_600x600km"):
+    dst_dx = 3000.0 #3,000m for PINACLES 3km grid
 
 # ---------------------------------------------------------------------------
 # End user configuration

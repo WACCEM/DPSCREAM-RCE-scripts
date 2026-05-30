@@ -28,9 +28,9 @@ pwd
 
 #ncks -O -6 --map=$mapfile $infile $outfile
 if [[ "$inres_col" == true ]]; then
-    ncks -O --rgr col_nm=ncol --map=$mapfile $infile ${outdir}/$outfile
+    echo ncks -O --rgr col_nm=ncol --map=$mapfile $infile ${outdir}/$outfile
 else
-    ncks -O --map=$mapfile $infile ${outdir}/$outfile
+    echo ncks -O --map=$mapfile $infile ${outdir}/$outfile
 fi
 #option -6  forces output to the legacy 64-bit offset format, but causing an error
 
