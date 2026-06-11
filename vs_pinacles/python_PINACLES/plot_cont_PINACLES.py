@@ -41,50 +41,12 @@ import colormaps as cmaps
 import shutil
 import subprocess
 sys.path.append("/global/common/software/m1867/python/ksa_env")
+sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
 
 from ks_pkg.plot_settings import init_style
 init_style()
-# ---------------------------------------------------------------------------
-# Locate a working ffmpeg binary that can encode h264.
-# Priority: (1) conda-env bin dir next to sys.executable,
-#           (2) PATH via shutil.which,
-#           (3) /usr/bin/ffmpeg (system)
-# The conda-forge ffmpeg 2.8.6 stub is broken (missing libx264.so);
-# if no working h264-capable binary is found the animation section will
-# automatically fall back to PillowWriter (saves a .gif instead of .mp4).
-#
-# To install a working ffmpeg in the conda env:
-#   pip install imageio imageio-ffmpeg
-# ---------------------------------------------------------------------------
-# %%
 
-def _find_working_ffmpeg():
-    """Return path to a ffmpeg binary that can encode h264, or None."""
-    candidates = []
-    # imageio-ffmpeg bundles a complete, working ffmpeg binary; try it first.
-    try:
-        import imageio_ffmpeg
-        candidates.append(imageio_ffmpeg.get_ffmpeg_exe())
-    except ImportError:
-        pass
-    candidates += [
-        os.path.join(os.path.dirname(sys.executable), "ffmpeg"),  # conda env
-        shutil.which("ffmpeg"),                                     # PATH
-        "/usr/bin/ffmpeg",                                          # system
-    ]
-    for path in candidates:
-        if not path or not os.path.isfile(path):
-            continue
-        try:
-            # Quick smoke-test: can the binary run at all?
-            result = subprocess.run(
-                [path, "-encoders"],
-                capture_output=True, timeout=10)
-            if result.returncode == 0 and b"libx264" in result.stdout:
-                return path
-        except Exception:
-            continue
-    return None
+from dp_scream_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
 
 _ffmpeg = _find_working_ffmpeg()
 if _ffmpeg:
@@ -94,115 +56,11 @@ else:
     print("WARNING: no h264-capable ffmpeg found; animation will be saved as GIF.")
     print("  To fix: conda install -c conda-forge ffmpeg")
 
-# ---------------------------------------------------------------------------
-# Helper: extract 2-D spatial slice from DataArray at a given time index
-# ---------------------------------------------------------------------------
-
-def get_2d_slice(da, tidx, lev_index=None):
-    """Return a scaled 2-D (ny, nx) numpy array from a DataArray.
-
-    Parameters
-    ----------
-    da         : xr.DataArray  – (time, [lev,] lat, lon)
-    tidx       : int           – time index
-    lev_index  : int or None   – level index (for 3-D fields only)
-
-    Scaling by the module-level vfactor and vshift is applied here so
-    callers always receive plot-ready values.
-    """
-    arr = da.isel(time=tidx)
-    if 'lev' in arr.dims:
-        if lev_index is None:
-            raise ValueError("lev_index must be specified for 3-D variables.")
-        arr = arr.isel(lev=lev_index)
-    return arr.values.astype(float) * vfactor + vshift
-
-
-def get_2d_timemean(da, lev_index=None):
-    """Return the scaled time-mean 2-D (ny, nx) numpy array.
-
-    Parameters
-    ----------
-    da         : xr.DataArray  – (time, [lev,] lat, lon)
-    lev_index  : int or None   – level index (for 3-D fields only)
-
-    Scaling by the module-level vfactor and vshift is applied here so
-    callers always receive plot-ready values.
-    """
-    arr = da.mean(dim='time')
-    if 'lev' in arr.dims:
-        if lev_index is None:
-            raise ValueError("lev_index must be specified for 3-D variables.")
-        arr = arr.isel(lev=lev_index)
-    return arr.values.astype(float) * vfactor + vshift
-
-
-def noleap_days_since(t_val, t0):
-    """Elapsed fractional days from t0 to t_val under noleap calendar.
-
-    Gregorian arithmetic counts Feb 29 as a real day; noleap does not.
-    This function subtracts one day for every Feb 29 that falls strictly
-    between t0 and t_val so the result matches the model's internal day
-    counter, which uses a 365-day year.
-    """
-    total_sec = (t_val - t0).total_seconds()
-    t_lo, t_hi = (t0, t_val) if total_sec >= 0 else (t_val, t0)
-    leap_days = sum(
-        1 for y in range(t_lo.year, t_hi.year + 1)
-        if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))  # Gregorian leap year
-        and t_lo < pd.Timestamp(y, 2, 29) <= t_hi
-    )
-    correction = leap_days if total_sec >= 0 else -leap_days
-    return total_sec / 86400.0 - correction
-
-# ---------------------------------------------------------------------------
-# Helper: create a filled contour / pcolormesh panel
-# ---------------------------------------------------------------------------
-
-def plot_2d_field(ax, field_2d, X, Y, method, n_lev, cmap_name,
-                  vmin=None, vmax=None):
-    """Plot a 2-D field on the given axes using contourf or pcolormesh.
-
-    Parameters
-    ----------
-    ax        : matplotlib Axes
-    field_2d  : (ny, nx) ndarray
-    X, Y      : (ny, nx) coordinate meshes (km)
-    method    : "contourf" or "pcolormesh"
-    n_lev     : int – number of contour levels
-    cmap_name : str – matplotlib colormap name
-    vmin/vmax : optional colour limits
-
-    Returns
-    -------
-    im : the mappable object (for colorbar)
-    """
-    if vmin is None:
-        vmin = np.nanpercentile(field_2d, 2)
-    if vmax is None:
-        vmax = np.nanpercentile(field_2d, 98)
-
-    if method == "contourf":
-        levels = np.linspace(vmin, vmax, n_lev + 1)
-        im = ax.contourf(X, Y, field_2d, levels=levels,
-                         cmap=cmap_name, extend="both")
-    else:  # pcolormesh
-        im = ax.pcolormesh(X, Y, field_2d,
-                           cmap=cmap_name, vmin=vmin, vmax=vmax,
-                           shading="nearest")
-
-    ax.set_aspect("equal")
-    ax.set_xlabel("X [km]", fontsize=10)
-    ax.set_ylabel("Y [km]", fontsize=10)
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    return im
-
-
 def _update(frame_idx):
     """Update the plot for one animation frame."""
     field = get_2d_slice(da, frame_idx,
-                         lev_index=lev_idx if is_3d else None)
+                         lev_index=lev_idx if is_3d else None,
+                         vfactor=vfactor, vshift=vshift)
     t_val  = pd.Timestamp(ds['time'].values[frame_idx])
     t_day  = noleap_days_since(t_val, t0_date)
 
@@ -235,7 +93,7 @@ in_dir = (f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw")
 
 # Day range to load (inclusive)
 day_start = 0
-day_end   = 60
+day_end   = 30
 
 # For 3-D variables (time, lev, lat, lon): choose which level index to plot.
 # Ignored for 2-D variables.
@@ -390,7 +248,8 @@ out_mean  = os.path.join(out_dir, f"{icase}.{varname}.time_mean.pdf")
 
 print("\n--- Section 1: time-mean plot ---")
 
-field_mean = get_2d_timemean(da, lev_index=lev_idx if is_3d else None)
+field_mean = get_2d_timemean(da, lev_index=lev_idx if is_3d else None,
+                             vfactor=vfactor, vshift=vshift)
 
 
 fig1, ax1 = plt.subplots(figsize=(7, 6), constrained_layout=True)
@@ -430,7 +289,7 @@ if(doplot):
     print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
     print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-    plot_day  = 46   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+    plot_day  = 10   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
     plot_hour = 12
     plot_time = np.datetime64(t0_date + pd.Timedelta(days=plot_day, hours=plot_hour))
     snap_tidxs = np.where(ds['time'].values == plot_time)[0]
@@ -441,7 +300,8 @@ if(doplot):
     out_snap  = os.path.join(out_dir, f"{icase}.{varname}.snap_t{snap_tidx:05d}.pdf")
 
 
-    field_snap = get_2d_slice(da, snap_tidx, lev_index=lev_idx if is_3d else None)
+    field_snap = get_2d_slice(da, snap_tidx, lev_index=lev_idx if is_3d else None,
+                              vfactor=vfactor, vshift=vshift)
 
     # Human-readable time label for this snapshot
     t_val  = pd.Timestamp(ds['time'].values[snap_tidx])
@@ -596,7 +456,8 @@ fig3, ax3 = plt.subplots(figsize=(7, 6), constrained_layout=True)
 
 # Draw first frame
 field_0 = get_2d_slice(da, frame_indices[0],
-                       lev_index=lev_idx if is_3d else None)
+                       lev_index=lev_idx if is_3d else None,
+                       vfactor=vfactor, vshift=vshift)
 if plot_method == "contourf":
     levels_anim = np.linspace(vmin_anim, vmax_anim, n_levels + 1)
     im3 = ax3.contourf(X_km, Y_km, field_0, levels=levels_anim,

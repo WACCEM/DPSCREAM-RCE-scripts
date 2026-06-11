@@ -19,18 +19,18 @@ conda activate dpscream_analysis
 
 pydir="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM"
 
-icase="RCE01_dx3km_gpu"
+icase="RCE09_dx3km_gpu"
 ihist="hist.INSTANT.nhours_x1"
 ifreq="nhours_x1"
 indir="/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/${icase}/run"
 
 # Define output time range
 iyear=2000
-stmon=2
+stmon=1
 stday=1
 
-edmon=5
-edday=31
+edmon=2
+edday=28
 
 stmonp=$(printf "%02d" $stmon)
 stdayp=$(printf "%02d" $stday)

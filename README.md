@@ -10,6 +10,7 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
+- [Shared Tools (`dp_scream_tools`)](#shared-tools-dp_scream_tools)
 - [Requirements](#requirements)
 - [Simulations](#simulations)
   - [Running](#running)
@@ -37,6 +38,7 @@ This repository provides tools to:
 
 ```
 DP-SCREAM/
+├── dp_scream_tools/      # Shared analysis and plotting tools for DP-SCREAM and PINACLES
 ├── python_DP-SCREAM/     # Python scripts and Jupyter notebooks for post-processing
 │   ├── remap/            # Horizontal remapping weights and regridding scripts
 │   └── *.py / *.ipynb
@@ -48,7 +50,16 @@ DP-SCREAM/
 
 ---
 
+## Shared Tools (`dp_scream_tools`)
+
+The `dp_scream_tools` package at the root of the repository provides shared functions used by multiple analysis scripts across the project (e.g., both DP-SCREAM and PINACLES output processing). 
+
+- **`dp_scream_tools.plotting`**: Contains shared plotting utilities, including colormap setup, 2D spatial slicing, time-mean extraction, noleap calendar handling, and ffmpeg binary detection for animations.
+
+---
+
 ## Requirements
+
 
 | Dependency | Purpose |
 |------------|---------|
