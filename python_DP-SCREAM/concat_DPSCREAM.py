@@ -15,7 +15,7 @@ import xarray as xr
 import numpy as np
 import ctypes, ctypes.util
 import cftime
-
+import sys
 # Suppress benign HDF5 "file not found" diagnostics printed to stderr
 _hdf5_lib = ctypes.util.find_library("hdf5")
 if _hdf5_lib:
@@ -24,6 +24,12 @@ if _hdf5_lib:
 import warnings
 warnings.filterwarnings("ignore")
 
+sys.path.append("/global/common/software/m1867/python/ksa_env")
+
+# %%
+
+from ks_pkg.plot_settings import init_style
+init_style()
 
 # %%
 
@@ -37,18 +43,19 @@ def extract_timestamp(filepath):
 
 # %%
 # --- CONFIGURATION ---
-icase      = "RCE01_dx3km_gpu"
+icase      = "RCE09_dx3km_gpu"
 in_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
 #in_dir     = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
 #out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
 #in_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/run"
 out_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw"
 
-varname    = "VapWaterPath"
-
+varname    = "LW_flux_up_at_model_top"
+zlev = None
+#zlev = 79
 # File naming parameters
-#stats_type = "AVERAGE"
-stats_type = "INSTANT"
+stats_type = "AVERAGE"
+#stats_type = "INSTANT"
 
 file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
@@ -59,7 +66,7 @@ frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct th
 
 # Date-range timestamps (inclusive) matching filename format YYYY-MM-DD
 ts_start = "2000-01-01"
-ts_end   = "2000-02-16"
+ts_end   = "2000-04-15"
 
 
 # %%
@@ -81,7 +88,16 @@ edyear = int(ts_end[:4])
 edmonth = int(ts_end[5:7])
 edday = int(ts_end[8:10])
 
-print(f"Variable  : {varname}")
+invarname = varname
+if varname == 'nc_m3':
+    invarname = 'nc'
+elif varname == 'ni_m3':
+    invarname = 'ni'
+
+out_varname = f"{varname}_level_{zlev}" if zlev is not None else varname
+print(f"Variable  : {varname} (reads {invarname})")
+if zlev is not None:
+    print(f"Out Var   : {out_varname}")
 print(f"Run dir   : {in_dir}")
 print(f"Output dir: {out_dir}")
 print(f"Period    : {ts_start}  to  {ts_end}")
@@ -103,6 +119,11 @@ start_date = np.datetime64(f"{styear:04d}-{stmonth:02d}-{stday:02d}")
 end_date = np.datetime64(f"{edyear:04d}-{edmonth:02d}-{edday:02d}")
 
 date_range = np.arange(start_date, end_date + np.timedelta64(1, 'D'), dtype='datetime64[D]')
+
+# Filter out February 29 (leap days) because the simulation uses a "noleap" calendar
+months = (date_range.astype('datetime64[M]') - date_range.astype('datetime64[Y]')).astype(int) + 1
+days = (date_range - date_range.astype('datetime64[M]')).astype(int) + 1
+date_range = date_range[~((months == 2) & (days == 29))]
 
 ndays = len(date_range)
 
@@ -135,7 +156,10 @@ for idct in range(ndays):
             del ds_first
 
     # Open and concatenate files for this day
-    ds_day = xr.open_mfdataset(day_files, combine='by_coords', parallel=False)[[varname]] if day_files else None
+    vars_to_extract = [invarname]
+    if '_m3' in varname:
+        vars_to_extract.extend(['ps', 'T_mid', 'hyam', 'hybm'])
+    ds_day = xr.open_mfdataset(day_files, combine='by_coords', parallel=False)[vars_to_extract] if day_files else None
 
     # check simulation initial time from the dataset attributes, and compare with the start date of the current day file; this is to verify if the initial time is included in the current day file or not, which is important for deciding whether to add missing value for the initial time or concatenate the time samples from the previous or next day history files
     if(idct == 0):
@@ -153,11 +177,26 @@ for idct in range(ndays):
     #refine the time array to only include the time samples for the current day
     time_on_today = time_today.sel(time=(time_today.dt.year == iyear) & (time_today.dt.month == imonth) & (time_today.dt.day == iday))
 
-    var_today = ds_day[varname].sel(time=time_on_today) #extract only the target time samples for the current day from the variable data array
+    var_today = ds_day[invarname].sel(time=time_on_today) #extract only the target time samples for the current day from the variable data array
+    if '_m3' in varname:
+        P0 = 100000.0
+        ps_today = ds_day['ps'].sel(time=time_on_today)
+        T_mid_today = ds_day['T_mid'].sel(time=time_on_today)
+        hyam = ds_day['hyam']
+        hybm = ds_day['hybm']
+        p_mid = hyam * P0 + hybm * ps_today
+        rho = p_mid / (287.042 * T_mid_today)
+        var_today = var_today * rho
+        var_today.attrs = ds_day[invarname].attrs.copy()
+        var_today.attrs['units'] = '1/m3'
+        var_today.name = varname
+
+    if zlev is not None and 'lev' in var_today.dims:
+        var_today = var_today.isel(lev=zlev)
 
     # Insert missing value for the initial time for average history files, or concatenate the time samples from the previous or next day history files; this is likely caused by a discontinuity in the first restart time in the test run "scream_cpu_dpxx_RCE_dx1km" case
-    if(stats_type == "AVERAGE" and styear == init_year and stmonth == init_month and stday == init_day and iday == init_day):
-        print(f"  Initial time {init_time} matches the start date {ts_start}. Add missing values for the output time corresponding to the initial time.")
+    if(stats_type == "AVERAGE" and iyear == init_year and imonth == init_month and iday == init_day):
+        print(f"  Current day {day_str} is the simulation initial day. Add missing values for the output time corresponding to the initial time.")
         nan_slice = xr.full_like(var_today.isel(time=0), fill_value=np.nan).expand_dims(time=[cftime.DatetimeNoLeap(init_year, init_month, init_day, 0, 0, 0)])
         var_today_extended = xr.concat([nan_slice, var_today], dim='time')
 
@@ -182,13 +221,17 @@ for idct in range(ndays):
         
         
     else:
-        print(f"  Initial time {init_time} does not match the start date {ts_start}, no need to add missing value for the initial time.")
         var_today_extended = var_today
         time_today_extended = time_on_today
 
     # check any outputs for today in the previous day file -----------------------------------
     print(f"  Checking any outputs in the previous day's last file")
     previous_day = date_range[idct] - np.timedelta64(1, 'D')
+    # If the offset lands on February 29, shift it back another day for the noleap calendar
+    p_month = (previous_day.astype('datetime64[M]') - previous_day.astype('datetime64[Y]')).astype(int) + 1
+    p_day = (previous_day - previous_day.astype('datetime64[M]')).astype(int) + 1
+    if p_month == 2 and p_day == 29:
+        previous_day = previous_day - np.timedelta64(1, 'D')
     previous_day_str = str(previous_day)
     previous_day_files = sorted(glob.glob(os.path.join(in_dir, file_prefix + previous_day_str + "-*.nc")))
     previous_day_file = previous_day_files[-1] if previous_day_files else None
@@ -201,7 +244,22 @@ for idct in range(ndays):
         tprev_on_idate = time_prevday.sel(time=(time_prevday.dt.year == iyear) & (time_prevday.dt.month == imonth) & (time_prevday.dt.day == iday))
         if(tprev_on_idate.size > 0):
             print(f"  WARNING: Found {tprev_on_idate.size} time points in the previous day's file that match the current day {day_str}.")
-            var_prevday = ds_prev[varname].sel(time=tprev_on_idate)
+            var_prevday = ds_prev[invarname].sel(time=tprev_on_idate)
+            if '_m3' in varname:
+                P0 = 100000.0
+                ps_prev = ds_prev['ps'].sel(time=tprev_on_idate)
+                T_mid_prev = ds_prev['T_mid'].sel(time=tprev_on_idate)
+                hyam_prev = ds_prev['hyam']
+                hybm_prev = ds_prev['hybm']
+                p_mid_prev = hyam_prev * P0 + hybm_prev * ps_prev
+                rho_prev = p_mid_prev / (287.042 * T_mid_prev)
+                var_prevday = var_prevday * rho_prev
+                var_prevday.attrs = ds_prev[invarname].attrs.copy()
+                var_prevday.attrs['units'] = '1/m3'
+                var_prevday.name = varname
+
+            if zlev is not None and 'lev' in var_prevday.dims:
+                var_prevday = var_prevday.isel(lev=zlev)
             ds_prev.close()
             del ds_prev
         else:
@@ -215,6 +273,11 @@ for idct in range(ndays):
     # check next day file ---------------------------------------
     print(f"  Checking any outputs in the next day's first file")
     next_day = date_range[idct] + np.timedelta64(1, 'D')
+    # If the offset lands on February 29, shift it forward another day for the noleap calendar
+    n_month = (next_day.astype('datetime64[M]') - next_day.astype('datetime64[Y]')).astype(int) + 1
+    n_day = (next_day - next_day.astype('datetime64[M]')).astype(int) + 1
+    if n_month == 2 and n_day == 29:
+        next_day = next_day + np.timedelta64(1, 'D')
     next_day_str = str(next_day)
     next_day_files = sorted(glob.glob(os.path.join(in_dir, file_prefix + next_day_str + "-*.nc")))
     next_day_file = next_day_files[0] if next_day_files else None
@@ -229,7 +292,22 @@ for idct in range(ndays):
         tnext_on_idate = time_nextday.sel(time=(time_nextday.dt.year == iyear) & (time_nextday.dt.month == imonth) & (time_nextday.dt.day == iday))
         if(tnext_on_idate.size > 0):
             print(f"  WARNING: Found {tnext_on_idate.size} time points in the next day's file that match the current day {day_str}.")
-            var_nextday = ds_next[varname].sel(time=tnext_on_idate)
+            var_nextday = ds_next[invarname].sel(time=tnext_on_idate)
+            if '_m3' in varname:
+                P0 = 100000.0
+                ps_next = ds_next['ps'].sel(time=tnext_on_idate)
+                T_mid_next = ds_next['T_mid'].sel(time=tnext_on_idate)
+                hyam_next = ds_next['hyam']
+                hybm_next = ds_next['hybm']
+                p_mid_next = hyam_next * P0 + hybm_next * ps_next
+                rho_next = p_mid_next / (287.042 * T_mid_next)
+                var_nextday = var_nextday * rho_next
+                var_nextday.attrs = ds_next[invarname].attrs.copy()
+                var_nextday.attrs['units'] = '1/m3'
+                var_nextday.name = varname
+
+            if zlev is not None and 'lev' in var_nextday.dims:
+                var_nextday = var_nextday.isel(lev=zlev)
             ds_next.close()
             del ds_next
         else:
@@ -270,18 +348,18 @@ for idct in range(ndays):
         attrs=var_today_extended.attrs,
     )
 
-    ds_vars = {varname: xr.DataArray(var_today_extended.values, dims=var_today_extended.dims, coords={'time': time_today_extended}, attrs=var_today_extended.attrs)}
+    ds_vars = {out_varname: xr.DataArray(var_today_extended.values, dims=var_today_extended.dims, coords={'time': time_today_extended}, attrs=var_today_extended.attrs)}
     if lat is not None:
         ds_vars['lat'] = lat
     if lon is not None:
         ds_vars['lon'] = lon
-    if lev is not None:
+    if lev is not None and zlev is None:
         ds_vars['lev'] = lev
     
     ds_today_extended = xr.Dataset(ds_vars)
 
     # Save concatenated dataset for this day
-    out_path = os.path.join(out_dir, f"{icase}.{varname}.{stats_type}.{frequency}.{day_str}.nc")
+    out_path = os.path.join(out_dir, f"{icase}.{out_varname}.{stats_type}.{frequency}.{day_str}.nc")
     # Encode time as float64 (double) instead of xarray's default int64 so that
     # ncview and other tools that don't recognise NC_INT64 (type 10) can read it.
     # _FillValue=None suppresses the unwanted _FillValue attribute on the time coordinate.
@@ -306,7 +384,7 @@ if(False):
     ds_check = xr.open_dataset(out_path)
     print("Output file contents:")
     print(ds_check)
-    print(f"\n'{varname}' shape : {ds_check[varname].shape}")
+    print(f"\n'{out_varname}' shape : {ds_check[out_varname].shape}")
     print(f"time range        : {ds_check['time'].values[0]}  to  {ds_check['time'].values[-1]}")
     ds_check.close()
 

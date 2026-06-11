@@ -1192,9 +1192,9 @@ A compliant configuration would require switching to the `noAero`-style setup:
 
 ---
 
-## noAero Configuration: RCE08_dx3km_gpu
+## noAero Configuration: RCE09_dx3km_gpu
 
-`run_RCE08_dx3km_gpu.sh` implements the `noAero`-style setup to match RCEMIP aerosol compliance.
+`run_RCE09_dx3km_gpu.sh` implements the `noAero`-style setup to match RCEMIP aerosol compliance.
 The following `atmchange` calls were added at the end of the `edit_atmconf` block:
 
 ```bash
@@ -1206,8 +1206,10 @@ The following `atmchange` calls were added at the end of the `edit_atmconf` bloc
 # 3. Switch P3 from SPA-driven prognostic N_c to the fallback constant NCCNST.
 ./atmchange physics::mac_aero_mic::p3::do_prescribed_ccn=false
 ./atmchange physics::mac_aero_mic::p3::do_predict_nc=false
-# 4. Set NCCNST to the RCEMIP-recommended 1.0e8 m^-3 (default is 200e6 m^-3).
-./atmchange physics::mac_aero_mic::p3::NCCNST=1.0e8
+# 4. NCCNST is a compile-time constant in physics_constants.hpp (200e6 m^-3). 
+#    It is NOT a runtime parameter accessible via atmchange.
+#    To change it, the source code file eamxx/src/physics/share/physics_constants.hpp 
+#    was modified directly on the ksa/nersc branch in the source clone.
 ```
 
 | `atmchange` call | Effect |
@@ -1216,7 +1218,6 @@ The following `atmchange` calls were added at the end of the `edit_atmconf` bloc
 | `physics::rrtmgp::do_aerosol_rad=false` | Passes zero aerosol optical properties to RRTMGP (SW+LW) |
 | `physics::mac_aero_mic::p3::do_prescribed_ccn=false` | Stops P3 from pulling CCN from SPA |
 | `physics::mac_aero_mic::p3::do_predict_nc=false` | Deactivates prognostic N_c; falls back to constant `NCCNST` |
-| `physics::mac_aero_mic::p3::NCCNST=1.0e8` | Sets constant N_c = 1.0×10⁸ m⁻³ (RCEMIP-recommended; default is 2.0×10⁸ m⁻³) |
 
 Because `spa` is removed from `atm_procs_list`, no valid `spa_data_file` is needed — the `spa`
 parameter block is ignored entirely. The `compute_tendencies` calls for `shoc` and `p3` in the
@@ -1259,7 +1260,7 @@ heterogeneous freezing, rime splintering, aggregation). It is a member of `P3Run
 The default 740×10³ m⁻³ is ~7× larger than the RCEMIP-recommended 1.0×10⁵ m⁻³. Without
 changing it, secondary ice production processes could build N_i well above the RCEMIP target.
 
-### Fix applied in `run_RCE08_dx3km_gpu.sh`
+### Fix applied in `run_RCE09_dx3km_gpu.sh`
 
 The following `atmchange` call was added (step 5 of the noAero block):
 
@@ -1281,8 +1282,11 @@ The nucleation branch cap and `max_total_ni` are now both at 1.0×10⁵ m⁻³.
 # 3. Switch P3 from SPA-driven prognostic N_c to the fallback constant NCCNST.
 ./atmchange physics::mac_aero_mic::p3::do_prescribed_ccn=false
 ./atmchange physics::mac_aero_mic::p3::do_predict_nc=false
-# 4. NCCNST (N_c constant fallback) is set via SourceMods/physics_constants.hpp (compile-time).
-#    Target: 1.0e8 m^-3 (RCEMIP-recommended; default is 200e6 m^-3).
+# 4. NCCNST is a compile-time constant in physics_constants.hpp (200e6 m^-3).
+#    To change it to the RCEMIP-recommended 1.0e8 m^-3, the file 
+#    eamxx/src/physics/share/physics_constants.hpp was modified directly 
+#    on the ksa/nersc branch in the source clone (/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone)
+#    because eamxx does not support the SourceMods approach.
 # 5. Cap total in-cloud ice number at the RCEMIP-recommended 1.0e5 m^-3.
 #    The deposition nucleation branch (active when do_predict_nc=false) already has a
 #    hard-coded nucleation cap of 1.0e5*inv_rho, but max_total_ni is the broader limiter
@@ -1292,11 +1296,11 @@ The nucleation branch cap and `max_total_ni` are now both at 1.0×10⁵ m⁻³.
 
 ### Updated compliance summary
 
-| Component | RCEMIP requirement | RCE08 setting | Match? |
+| Component | RCEMIP requirement | RCE09 setting | Match? |
 |---|---|---|---|
 | Aerosol optical effects in radiation | Off | `do_aerosol_rad=false` | ✅ |
 | SPA aerosol process | Absent | Removed from `atm_procs_list` | ✅ |
-| N_c cloud droplet number | Fixed 1.0×10⁸ m⁻³ | `NCCNST=1.0e8` via SourceMods | ✅ |
+| N_c cloud droplet number | Fixed 1.0×10⁸ m⁻³ | `NCCNST=1.0e8` via source branch `ksa/nersc` | ✅ |
 | N_i ice crystal number | Fixed 1.0×10⁵ m⁻³ | Deposition nucleation cap ~1.0×10⁵ m⁻³ (hard-coded) + `max_total_ni=1.0e5` | ✅ |
 | Heterogeneous freezing | Off | `use_hetfrz_classnuc=false` (default) | ✅ |
 
@@ -1327,7 +1331,7 @@ At typical lower-tropospheric conditions (ρ ≈ 1 kg/m³), `nc` [#/kg] ≈ N_c 
 
 ### What to look for
 
-**For N_c** — with `do_predict_nc=false` and `NCCNST=1.0e8 m⁻³` set via SourceMods,
+**For N_c** — with `do_predict_nc=false` and `NCCNST=1.0e8 m⁻³` set via source branch `ksa/nersc`,
 `nc` should be spatially uniform wherever cloud liquid is present (`qc > 0`), equal to
 `NCCNST × inv_rho`. Any spatial variability or values inconsistent with 1.0×10⁸ m⁻³ × inv_rho
 would indicate the prognostic path is still active.
@@ -1422,3 +1426,136 @@ Ni_conc = ds.ni * rho
 print(f"N_c mean: {Nc_conc.mean().item():.3e} m⁻³  (target: 1.0e8)")
 print(f"N_i max:  {Ni_conc.max().item():.3e} m⁻³  (target: ≤1.0e5)")
 ```
+
+---
+
+## FAQ: Do N_c and N_i Represent Always-Present Particles or Maximums?
+
+**Question:** Does setting these constants mean there are always $N_c$ cloud droplets and $N_i$ ice cloud crystals? Or are they just the numbers of aerosol particles that can become cloud droplets/ice crystals if the environment and other conditions allow? In other words, $N_c$ and $N_i$ are the possible, maximum numbers of cloud droplets and ice crystals, correct?
+
+**Answer:** No, they do not represent a pool of available aerosol particles waiting to activate, and they behave differently from each other. In the idealized `noAero` RCEMIP configuration, the complex aerosol activation process is bypassed entirely. Here is exactly what setting those constants means for $N_c$ and $N_i$ in the P3 microphysics scheme:
+
+### For $N_c$ (Cloud Droplet Number Concentration)
+$N_c$ is **not a maximum**, it is an **exact, prescribed value**—but it is only applied where a cloud actually exists. 
+- When the model determines that liquid cloud water ($q_c > 0$) has formed in a grid cell, it mathematically overwrites the droplet number in that cloud to be exactly $N_c$ (which we set to $1.0 \times 10^8 \text{ m}^{-3}$).
+- If there is no cloud in a grid cell (clear sky), the droplet number is zero. 
+- It does not represent a "potential" number of aerosols. The model simply assumes: *"Whenever and wherever liquid water condenses, it will automatically partition into exactly $N_c$ droplets per cubic meter."*
+
+### For $N_i$ (Ice Crystal Number Concentration)
+Your intuition about it being a **maximum possible number** is actually **100% correct for ice!**
+- Unlike droplets, ice crystals have "memory"—they can advect for hundreds of miles in cirrus anvils, aggregate into larger snowflakes, or undergo explosive secondary multiplication (rime splintering).
+- Because of this, forcing $N_i$ to be a fixed constant everywhere there is ice would physically break the model (e.g., a sparse cirrus anvil with huge crystals would suddenly be "corrected" into a dense cloud of tiny crystals at the next timestep).
+- Instead, the RCEMIP target ($1.0 \times 10^5 \text{ m}^{-3}$) is applied as a parameter called `max_total_ni`. The ice number is fully prognostic (it grows and shrinks based on temperature, nucleation, and advection), but the model strictly **caps** it so it never exceeds $1.0 \times 10^5 \text{ m}^{-3}$.
+
+### Summary
+*   **$N_c$** is the **exact** number of droplets present *within any given liquid cloud*. 
+*   **$N_i$** is the **maximum cap** for the number of ice crystals, but the actual number can be much lower depending on the cloud's history and temperature.
+
+---
+
+## FAQ: Why are there intermediate values of N_c in instantaneous output?
+
+**Question:** When plotting $N_c$ at a specific level (e.g., level 79 / ~5000m) from the instantaneous hourly history file, most grid points are either 0 or $1.0\times10^8$, but a few have intermediate values like $0.9\times10^8$ or $0.45\times10^8$. No interpolation or averaging has been done. What could explain this discrepancy? Is the output $N_c$ weighted by cloud fraction?
+
+![N_c raw values plot](../python_DP-SCREAM/testfigs/RCE09_dx3km_gpu.nc_m3_level_79.2000-02-01_to_2000-02-01_time_raw.png)
+
+**Answer:** No, the output $N_c$ is **not** weighted by cloud fraction. The intermediate values you are seeing are "ghost" tracer concentrations caused by the interaction between the model's **dynamical advection** and an **early-exit optimization** in the P3 microphysics code.
+
+Here is exactly how these "ghost" values get created and preserved in the output:
+
+### 1. Dynamics (Advection) Mixes the Tracers
+In EAMxx, $N_c$ is treated as an advecting tracer. When the dynamical core (HOMME) advects air between grid cells, it mixes them. If a cloudy grid cell (where P3 previously forced $N_c = 1.0\times10^8$) mixes with a clear-sky grid cell ($N_c = 0$), the resulting grid cell will end up with an intermediate, mathematically mixed tracer value (e.g., $0.45\times10^8$). During this mixing, the cloud water mass ($q_c$) is also mixed and reduced.
+
+### 2. P3's `skip_all` Optimization 
+At the very beginning of the P3 microphysics step, there is a performance optimization flag called `skip_all`. P3 will completely skip all calculations for a vertical column pack if:
+* There are practically no hydrometeors ($q_c, q_r, q_i < 10^{-8}$ kg/kg)
+* The temperature is below freezing ($T < 0^\circ$C)
+* The air is subsaturated with respect to ice ($RH_{\text{ice}} < 95\%$)
+
+At level 79 (~5,000 meters), the temperature is below freezing. In clear-sky regions away from convection, the air is also subsaturated. Thus, the `skip_all` condition is met for cells where the liquid water has evaporated or dispersed.
+
+### 3. The Missed Clipping
+Normally, at the end of the P3 physics step, there is a cleanup routine that says: *"If $q_c$ is effectively zero, force $N_c$ back to 0."* 
+However, **because the `skip_all` condition was met, P3 skips the entire cell, including the cleanup routine.** As a result, the $N_c$ tracer is completely untouched by the physics step and retains whatever mixed, intermediate value the dynamical advection left it with (e.g., $0.45\times10^8$). It simply passes right through to your instantaneous history output.
+
+### Is this a problem?
+**No, this does not affect the simulation.** Even though there is a non-zero droplet number ($N_c$) lingering in that cell, the actual liquid water mass ($q_c$) is effectively zero ($< 10^{-8}$ kg/kg). Because there is no mass, the droplets cannot absorb radiation, interact with aerosols, or precipitate. They are just inert "ghost" numbers advecting through the clear air. 
+
+If conditions change and a cloud actually forms in that grid cell later, the `skip_all` flag will turn off, P3 will run, and it will immediately overwrite the intermediate $N_c$ value back to exactly $1.0\times10^8$ inside the new cloud.
+
+---
+
+## Initial Conditions
+
+### File Paths and Roles
+The RCE configuration in DP-SCREAM uses two primary files for initialization:
+
+1. **Initial Condition Profiles (IOP File):**
+   Provides the initial horizontally uniform profiles (e.g., temperature and moisture) and boundary conditions.
+   * **Absolute Path:** `/global/cfs/cdirs/e3sm/inputdata/atm/cam/scam/iop/RCE_300K_iopfile_4scam.nc`
+   * **Configured via:** `./atmchange iop_file=...`
+
+2. **Base 3D Initial Conditions File:**
+   Provides the base 3D initial state and the global grid definition (which is subsequently overwritten by the IOP profiles).
+   * **Absolute Path:** `/global/cfs/cdirs/e3sm/inputdata/atm/scream/init/screami_ne30np4L128_20221004.nc`
+   * **Configured via:** `./atmchange initial_conditions::filename=...`
+
+### Step-by-Step Initialization Flow
+The initialization process follows these steps internally within EAMxx (specifically controlled by `atmosphere_driver.cpp`):
+
+1. **Base Allocation:** The model first loads the 3D base state from `initial_conditions::filename`. It uses this file to establish the core global grid geometry, allocate memory for the arrays, and fill the domain with placeholder physical state variables.
+2. **IOP Overwrite:** Immediately after the base Initial Conditions are processed, the driver checks if an `iop_file` was provided.
+3. **Broadcasting:** The driver then calls a dedicated function (`m_iop_data_manager->set_fields_from_iop_data`). This function takes the horizontally uniform 1D profiles (such as Temperature and Moisture) from the specified `iop_file` and explicitly overwrites the placeholder values in every single column across the 3D grid.
+
+This ensures that the thermodynamic starting state is uniformly set by the IOP file, overriding the base 3D file entirely.
+
+### The Time Dimension in the IOP File
+When examining the IOP file (`RCE_300K_iopfile_4scam.nc`), one might notice that it contains exactly two time levels (`tsec = 0` and `tsec = 43200000`, which corresponds to 500 days), and the variable values at these two times are identical. 
+
+This structure is a standard convention for Single Column Model (SCM) or Intensive Observation Period (IOP) forcing frameworks used in E3SM/EAMxx:
+* **Time Interpolation:** The `IOPDataManager` component is designed to read time-varying weather conditions and linearly interpolate between the "previous" and "next" time stamps.
+* **Providing Bounding Points:** If the file only contained a single time slice, the interpolation routine would fail because it wouldn't have a bounding "next" time step to interpolate towards.
+* **Constant Forcing:** By providing two identical time slices bridging a 500-day window, the model successfully interpolates values at every time step. Because the start and end values are exactly the same, the resulting forcing remains perfectly constant throughout the simulation. This fulfills the idealized RCE requirement without needing special "constant forcing" logic in the source code.
+
+### Verification and Plotting Script
+A Python script is available to verify the contents of the initial condition IOP file:
+* **Location:** `python_DP-SCREAM/check_ICfile.py`
+* **Functionality:** 
+  - Automatically identifies variables that do not depend on height (like surface pressure, $P_s$) and prints their values to the terminal.
+  - Computes the physical height above sea level (in km) by integrating the hydrostatic equation layer-by-layer.
+  - Generates line plots for all multi-level variables (e.g., $T, q, u, v, \omega$) against the calculated physical height.
+  - Designed with `# %%` separators to be run interactively cell-by-cell in an IDE, or as a standalone script using the `dpscream_analysis` conda environment.
+
+---
+
+## History Files: Timestamps and Restart Behavior
+
+In EAMxx (and E3SM in general), the timestamp in a history filename (e.g., `...00000.nc` vs `...03600.nc`) does **not** represent the time of the first snapshot written into it. Instead, it represents the **exact time the file was created and opened**, which corresponds to the start of the tracking/accumulation interval.
+
+This distinction leads to different naming and splitting behaviors between `AVERAGE` and `INSTANT` output streams, particularly across restart boundaries.
+
+### AVERAGE History Streams
+For an `AVERAGE` history stream (e.g., a 1-hour average), the snapshot written at `01:00` accumulates data over the time bounds `[00:00, 01:00]`. 
+* To start accumulating data over that interval, the model opens the file right at the beginning of the run (at exactly `00:00:00`). Because the file is "born" at `00:00`, it gets the `00000.nc` suffix.
+* When the simulation hits a restart boundary (e.g., exactly at `00:00` of day 6), the restart job immediately opens a new file at `00:00` to start accumulating the next interval. 
+* **Result:** `AVERAGE` streams cleanly maintain the `00000.nc` suffix across all initial runs and restart runs.
+
+### INSTANT History Streams
+By default, `INSTANT` history streams output a snapshot of the initial state at the exact moment the simulation begins (`t=0` or `00:00:00`). This causes a phase shift:
+* For a 5-day continuous run outputting hourly, there are 120 hours. But because of the `t=0` snapshot, the first run actually writes **121 snapshots**.
+* If `max_snapshots_per_file: 24` is set, the history manager packs the first 120 snapshots into 5 files. The 121st snapshot (exactly `00:00:00` of the 6th day) gets stranded all by itself in a newly created file: `...2000-01-06-00000.nc`.
+* When the restart job begins at `00:00:00`, it knows that time was already output. Its first actual output is triggered one hour later at `01:00:00` (`03600` seconds).
+* Because it waits until `01:00` to open its file, the restart file is named `...2000-01-06-03600.nc`. Every subsequent file in the restart runs will also start at `01:00` and have the `03600` suffix.
+
+### The Solution: `skip_t0_output: true`
+To make `INSTANT` output consistent and avoid 1-snapshot stranded files at restart boundaries, you can instruct EAMxx to skip the `t=0` output by adding `skip_t0_output: true` to the `output_control` section of your instantaneous YAML file:
+
+```yaml
+output_control:
+  frequency: 1
+  frequency_units: nhours
+  skip_t0_output: true
+```
+
+* **Effect on INSTANT:** The output manager waits until `01:00` to open its very first file. It creates the file at exactly `03600` seconds, permanently adopting `03600.nc` as its filename suffix for both the initial run and all subsequent restarts. Each file will cleanly hold exactly 24 snapshots.
+* **Effect on AVERAGE:** You do not need to add this flag to average YAML files. Average streams never output a `t=0` snapshot to begin with, which is why they naturally avoid this issue.

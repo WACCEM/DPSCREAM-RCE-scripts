@@ -35,10 +35,10 @@ from check_output_stream import get_output_stream
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE01_dx3km_gpu"
+icase      = "RCE09_dx3km_gpu"
 stats_type = "INSTANT" # "INSTANT" or "AVERAGE" #later modified depending on the variable using the get_output_stream function, which checks the variable name against the output stream types to determine which one it belongs to. If the variable is not found in either stream, it will be skipped with a warning.
 
-file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
 
 #used for raw files
@@ -48,17 +48,20 @@ frequency = "nhours_x1" # e.g. "nmins_x5" (= 5 minutes), "nhours_x1" (= 1 hour),
 # Variables to process.  Use ["all"] to process every ncol-based variable
 # found in the input file(s). All variables must have the same file_type, stats_type, and frequency as specified above.
 #vartodo = ["VapWaterPath"]  #,"LW_flux_up_at_model_top",VapWaterPath
-varname = "imse" # 
+varname = "VapWaterPath" # 
 
 # Input files produced by concat_DPSCREAM.py.
-in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+if(file_type == "raw"):
+    in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
+else:
+    in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 #in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
 # Output directory (created if it does not already exist)
 out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/havg")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
-ts_end   = "2000-05-31"
+ts_end   = "2000-04-15"
 
 # %%
 

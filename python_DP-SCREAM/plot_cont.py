@@ -37,10 +37,13 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.ticker import AutoMinorLocator
 import matplotlib.animation as manimation
-import cmocean
+import colormaps as cmaps
 import shutil
 import subprocess
+sys.path.append("/global/common/software/m1867/python/ksa_env")
 
+from ks_pkg.plot_settings import init_style
+init_style()
 # ---------------------------------------------------------------------------
 # Locate a working ffmpeg binary that can encode h264.
 # Priority: (1) conda-env bin dir next to sys.executable,
@@ -91,25 +94,158 @@ else:
     print("WARNING: no h264-capable ffmpeg found; animation will be saved as GIF.")
     print("  To fix: conda install -c conda-forge ffmpeg")
 
+# ---------------------------------------------------------------------------
+# Helper: extract 2-D spatial slice from DataArray at a given time index
+# ---------------------------------------------------------------------------
+
+def get_2d_slice(da, tidx, lev_index=None):
+    """Return a scaled 2-D (ny, nx) numpy array from a DataArray.
+
+    Parameters
+    ----------
+    da         : xr.DataArray  – (time, [lev,] lat, lon)
+    tidx       : int           – time index
+    lev_index  : int or None   – level index (for 3-D fields only)
+
+    Scaling by the module-level vfactor and vshift is applied here so
+    callers always receive plot-ready values.
+    """
+    arr = da.isel(time=tidx)
+    if 'lev' in arr.dims:
+        if lev_index is None:
+            raise ValueError("lev_index must be specified for 3-D variables.")
+        arr = arr.isel(lev=lev_index)
+    return arr.values.astype(float) * vfactor + vshift
+
+
+def get_2d_timemean(da, lev_index=None):
+    """Return the scaled time-mean 2-D (ny, nx) numpy array.
+
+    Parameters
+    ----------
+    da         : xr.DataArray  – (time, [lev,] lat, lon)
+    lev_index  : int or None   – level index (for 3-D fields only)
+
+    Scaling by the module-level vfactor and vshift is applied here so
+    callers always receive plot-ready values.
+    """
+    arr = da.mean(dim='time')
+    if 'lev' in arr.dims:
+        if lev_index is None:
+            raise ValueError("lev_index must be specified for 3-D variables.")
+        arr = arr.isel(lev=lev_index)
+    return arr.values.astype(float) * vfactor + vshift
+
+
+def noleap_days_since(t_val, t0):
+    """Elapsed fractional days from t0 to t_val under noleap calendar.
+
+    Gregorian arithmetic counts Feb 29 as a real day; noleap does not.
+    This function subtracts one day for every Feb 29 that falls strictly
+    between t0 and t_val so the result matches the model's internal day
+    counter, which uses a 365-day year.
+    """
+    total_sec = (t_val - t0).total_seconds()
+    t_lo, t_hi = (t0, t_val) if total_sec >= 0 else (t_val, t0)
+    leap_days = sum(
+        1 for y in range(t_lo.year, t_hi.year + 1)
+        if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))  # Gregorian leap year
+        and t_lo < pd.Timestamp(y, 2, 29) <= t_hi
+    )
+    correction = leap_days if total_sec >= 0 else -leap_days
+    return total_sec / 86400.0 - correction
+
+# ---------------------------------------------------------------------------
+# Helper: create a filled contour / pcolormesh panel
+# ---------------------------------------------------------------------------
+
+def plot_2d_field(ax, field_2d, X, Y, method, n_lev, cmap_name,
+                  vmin=None, vmax=None):
+    """Plot a 2-D field on the given axes using contourf or pcolormesh.
+
+    Parameters
+    ----------
+    ax        : matplotlib Axes
+    field_2d  : (ny, nx) ndarray
+    X, Y      : (ny, nx) coordinate meshes (km)
+    method    : "contourf" or "pcolormesh"
+    n_lev     : int – number of contour levels
+    cmap_name : str – matplotlib colormap name
+    vmin/vmax : optional colour limits
+
+    Returns
+    -------
+    im : the mappable object (for colorbar)
+    """
+    if vmin is None:
+        vmin = np.nanpercentile(field_2d, 2)
+    if vmax is None:
+        vmax = np.nanpercentile(field_2d, 98)
+
+    if method == "contourf":
+        levels = np.linspace(vmin, vmax, n_lev + 1)
+        im = ax.contourf(X, Y, field_2d, levels=levels,
+                         cmap=cmap_name, extend="both")
+    else:  # pcolormesh
+        im = ax.pcolormesh(X, Y, field_2d,
+                           cmap=cmap_name, vmin=vmin, vmax=vmax,
+                           shading="nearest")
+
+    ax.set_aspect("equal")
+    ax.set_xlabel("X [km]", fontsize=10)
+    ax.set_ylabel("Y [km]", fontsize=10)
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    return im
+
+
+def _update(frame_idx):
+    """Update the plot for one animation frame."""
+    field = get_2d_slice(da, frame_idx,
+                         lev_index=lev_idx if is_3d else None)
+    t_val  = pd.Timestamp(ds['time'].values[frame_idx])
+    t_day  = noleap_days_since(t_val, t0_date)
+
+    if plot_method == "contourf":
+        # contourf cannot be updated in place – clear and redraw
+        for coll in ax3.collections:
+            coll.remove()
+        im = ax3.contourf(X_km, Y_km, field, levels=levels_anim,
+                          cmap=cmap, extend="both")
+    else:
+        im3.set_array(field.ravel())
+        im = im3
+
+    title3.set_text(
+        f"{varname}{lev_label}  |  "
+        f"{t_val.strftime('%Y-%m-%d %H:%M UTC')}  (day {t_day:.2f})\n"
+        f"{icase}")
+    return (im, title3)
+
 # %%
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "scream_cpu_dpxx_RCE_dx1km" #"RCE01_dx1km_gpu_branch"
-varname    = "imse"
-
+icase      = "RCE02_dx3km_gpu" #"RCE01_dx1km_gpu_branch"
+varname    = "LW_flux_up_at_model_top"
+crange_name = None
 # File naming parameters (must match regrid_DPSCREAM.py output convention)
-stats_type = "INSTANT"
+#stats_type = "INSTANT"
+stats_type = "AVERAGE"
 frequency  = "nhours_x1"
-dstgrid    = "PINACLES_YX_dx1km_600x600km"
+dstgrid    = "PINACLES_YX_dx3km_600x600km"
 
 # Input directory containing the remapped daily files
 in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date range to load (inclusive, YYYY-MM-DD)
 iyear = 2000
-ts_start = f"{iyear}-01-05"
-ts_end   = f"{iyear}-01-25"
+#ts_start = f"{iyear}-01-13"
+#ts_end   = f"{iyear}-01-17"
+#ts_start = f"{iyear}-02-15"
+#ts_end   = f"{iyear}-02-25"
+ts_start = f"{iyear}-03-01"
+ts_end   = f"{iyear}-03-31"
 
 # For 3-D variables (time, lev, lat, lon): choose which level index to plot.
 # Ignored for 2-D variables.
@@ -122,38 +258,39 @@ plot_method = "pcolormesh"   # "contourf" or "pcolormesh"
 # Number of contour levels (used only for contourf)
 n_levels = 20
 
-# Colormap – use a cmocean perceptually-uniform map.
-# Good choices: cmocean.cm.thermal (temperature/energy), cmocean.cm.haline
-# (moisture), cmocean.cm.rain (precipitation), cmocean.cm.balance (anomalies).
-cmap = cmocean.cm.thermal
-
 # Reference date for day counting in titles and animation frame selection.
 # Fixed to the simulation start so that day numbers are absolute simulation days
 # (e.g. day 46 = Feb 15 in a noleap year starting Jan 1).
 t0_date = pd.Timestamp("2000-01-01")
 
-# %%
 # ---------------------------------------------------------------------------
 # Save flags and output paths
 # ---------------------------------------------------------------------------
 out_dir  = f"/pscratch/sd/w/wcmca1/DP-SCREAM/plots"
 dpi = 150   # figure resolution for raster saves
 
-# ---------------------------------------------------------------------------
-# End user configuration
-# ---------------------------------------------------------------------------
-
-# %%
 #variable setting
 vfactor = 1.0
 vshift = 0.0
 
+# Colormap – use a cmocean perceptually-uniform map.
+# Good choices: cmocean.cm.thermal (temperature/energy), cmocean.cm.haline
+# (moisture), cmocean.cm.rain (precipitation), cmocean.cm.balance (anomalies).
+cmap = cmaps.thermal
+
 if(varname == "imse"):
     vfactor = 1e-9
     vshift = 0.0
+elif(varname == "LW_flux_up_at_model_top"):
+    import matplotlib.colors as mcolors
+    # Use a power-law mapping (power > 1) to keep the colormap whitish/light-gray 
+    # for a larger portion of the lower values, transitioning to dark gray/black at the high end.
+    p = 2.0 #this exponent 2.0 seems to reproduce the colorbar in Fig. 2 of Wing et al., 2020
+    colors = cmaps.gray_r(np.linspace(0.0, 1.0, 256) ** p)
+    cmap = mcolors.LinearSegmentedColormap.from_list('gray_r_shifted', colors)
+
 
 # %%
-
 # ---------------------------------------------------------------------------
 # Build file list for the requested date range
 # ---------------------------------------------------------------------------
@@ -220,25 +357,6 @@ print(f"  dims       : {ds[varname].dims}")
 #   time_index                 → full list of all time steps
 time_index = pd.DatetimeIndex(ds['time'].values)
 
-
-def noleap_days_since(t_val, t0):
-    """Elapsed fractional days from t0 to t_val under noleap calendar.
-
-    Gregorian arithmetic counts Feb 29 as a real day; noleap does not.
-    This function subtracts one day for every Feb 29 that falls strictly
-    between t0 and t_val so the result matches the model's internal day
-    counter, which uses a 365-day year.
-    """
-    total_sec = (t_val - t0).total_seconds()
-    t_lo, t_hi = (t0, t_val) if total_sec >= 0 else (t_val, t0)
-    leap_days = sum(
-        1 for y in range(t_lo.year, t_hi.year + 1)
-        if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))  # Gregorian leap year
-        and t_lo < pd.Timestamp(y, 2, 29) <= t_hi
-    )
-    correction = leap_days if total_sec >= 0 else -leap_days
-    return total_sec / 86400.0 - correction
-
 # %%
 # ---------------------------------------------------------------------------
 # Extract coordinate arrays (X, Y in km for labelling)
@@ -258,99 +376,8 @@ elif 'lon' in _ds0 and 'lat' in _ds0:
 else:
     raise ValueError("Could not find spatial coordinate variables in dataset.")
 
-# %%
-
 # Build 2-D grids for pcolormesh / contourf
 X_km, Y_km = np.meshgrid(x_km, y_km)   # shapes (ny, nx)
-
-# %%
-# ---------------------------------------------------------------------------
-# Helper: extract 2-D spatial slice from DataArray at a given time index
-# ---------------------------------------------------------------------------
-
-def get_2d_slice(da, tidx, lev_index=None):
-    """Return a scaled 2-D (ny, nx) numpy array from a DataArray.
-
-    Parameters
-    ----------
-    da         : xr.DataArray  – (time, [lev,] lat, lon)
-    tidx       : int           – time index
-    lev_index  : int or None   – level index (for 3-D fields only)
-
-    Scaling by the module-level vfactor and vshift is applied here so
-    callers always receive plot-ready values.
-    """
-    arr = da.isel(time=tidx)
-    if 'lev' in arr.dims:
-        if lev_index is None:
-            raise ValueError("lev_index must be specified for 3-D variables.")
-        arr = arr.isel(lev=lev_index)
-    return arr.values.astype(float) * vfactor + vshift
-
-
-def get_2d_timemean(da, lev_index=None):
-    """Return the scaled time-mean 2-D (ny, nx) numpy array.
-
-    Parameters
-    ----------
-    da         : xr.DataArray  – (time, [lev,] lat, lon)
-    lev_index  : int or None   – level index (for 3-D fields only)
-
-    Scaling by the module-level vfactor and vshift is applied here so
-    callers always receive plot-ready values.
-    """
-    arr = da.mean(dim='time')
-    if 'lev' in arr.dims:
-        if lev_index is None:
-            raise ValueError("lev_index must be specified for 3-D variables.")
-        arr = arr.isel(lev=lev_index)
-    return arr.values.astype(float) * vfactor + vshift
-
-
-# %%
-# ---------------------------------------------------------------------------
-# Helper: create a filled contour / pcolormesh panel
-# ---------------------------------------------------------------------------
-
-def plot_2d_field(ax, field_2d, X, Y, method, n_lev, cmap_name,
-                  vmin=None, vmax=None):
-    """Plot a 2-D field on the given axes using contourf or pcolormesh.
-
-    Parameters
-    ----------
-    ax        : matplotlib Axes
-    field_2d  : (ny, nx) ndarray
-    X, Y      : (ny, nx) coordinate meshes (km)
-    method    : "contourf" or "pcolormesh"
-    n_lev     : int – number of contour levels
-    cmap_name : str – matplotlib colormap name
-    vmin/vmax : optional colour limits
-
-    Returns
-    -------
-    im : the mappable object (for colorbar)
-    """
-    if vmin is None:
-        vmin = np.nanpercentile(field_2d, 2)
-    if vmax is None:
-        vmax = np.nanpercentile(field_2d, 98)
-
-    if method == "contourf":
-        levels = np.linspace(vmin, vmax, n_lev + 1)
-        im = ax.contourf(X, Y, field_2d, levels=levels,
-                         cmap=cmap_name, extend="both")
-    else:  # pcolormesh
-        im = ax.pcolormesh(X, Y, field_2d,
-                           cmap=cmap_name, vmin=vmin, vmax=vmax,
-                           shading="auto")
-
-    ax.set_aspect("equal")
-    ax.set_xlabel("X [km]", fontsize=10)
-    ax.set_ylabel("Y [km]", fontsize=10)
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    return im
-
 
 # %%
 # ---------------------------------------------------------------------------
@@ -400,9 +427,11 @@ if savefig_mean:
     fig1.savefig(out_mean, dpi=dpi, bbox_inches="tight")
     print(f"  Saved: {out_mean}")
 
-plt.show()
 if not _interactive:
     plt.close(fig1)
+else:
+    print("  Time-mean plot displayed interactively.")
+    plt.show()
 # Free the large data array; the rendered figure stays displayed.
 del im1, ax1, cb1
 
@@ -412,55 +441,77 @@ del im1, ax1, cb1
 # ===========================================================================
 # snapshot index (0-based index into the concatenated time axis)
 # ---------------------------------------------------------------------------
-print(f"\n--- Section 2: snapshot at time index ---")
-print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
-print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
-snap_tidx = 360   # which time step to plot as snapshot
-plottime = pd.Timestamp(ds['time'].values[snap_tidx])
-savefig_snap  = False   # Section 2: save snapshot figure as PDF
+doplot=True
+if(doplot):
+    print(f"\n--- Section 2: snapshot at time index ---")
+    print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
+    print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-out_snap  = os.path.join(out_dir, f"{icase}.{varname}.snap_t{snap_tidx:05d}.pdf")
+    plot_day  = 80   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+    plot_hour = 12
+    plot_time = np.datetime64(t0_date + pd.Timedelta(days=plot_day, hours=plot_hour))
+    snap_tidxs = np.where(ds['time'].values == plot_time)[0]
+    snap_tidx = snap_tidxs[0] if snap_tidxs.size > 0 else np.nan
+
+    savefig_snap  = False   # Section 2: save snapshot figure as PDF
+
+    out_snap  = os.path.join(out_dir, f"{icase}.{varname}.snap_t{snap_tidx:05d}.pdf")
 
 
-field_snap = get_2d_slice(da, snap_tidx, lev_index=lev_idx if is_3d else None)
+    field_snap = get_2d_slice(da, snap_tidx, lev_index=lev_idx if is_3d else None)
 
-# Human-readable time label for this snapshot
-t_val  = pd.Timestamp(ds['time'].values[snap_tidx])
-t_label = t_val.strftime("%Y-%m-%d %H:%M UTC")
-t_day   = noleap_days_since(t_val, t0_date)
+    # Human-readable time label for this snapshot
+    t_val  = pd.Timestamp(ds['time'].values[snap_tidx])
+    t_label = t_val.strftime("%Y-%m-%d %H:%M UTC")
+    t_day   = noleap_days_since(t_val, t0_date)
 
-fig2, ax2 = plt.subplots(figsize=(7, 6), constrained_layout=True)
+    fig2, ax2 = plt.subplots(figsize=(7, 6), constrained_layout=True)
 
-# Use the time-mean colour limits so the snapshot is comparable to Section 1
-vmin_snap = np.nanpercentile(field_mean, 2)
-vmax_snap = np.nanpercentile(field_mean, 98)
+    # Use the time-mean colour limits so the snapshot is comparable to Section 1
+    vmin_snap = np.nanpercentile(field_mean, 2)
+    vmax_snap = np.nanpercentile(field_mean, 98)
+    if(varname == "LW_flux_up_at_model_top"):
+        vmin_snap = 0
+        vmax_snap = 270
 
-im2 = plot_2d_field(ax2, field_snap, X_km, Y_km,
-                    method=plot_method, n_lev=n_levels, cmap_name=cmap,
-                    vmin=vmin_snap, vmax=vmax_snap)
+    im2 = plot_2d_field(ax2, field_snap, X_km, Y_km,
+                        method=plot_method, n_lev=n_levels, cmap_name=cmap,
+                        vmin=vmin_snap, vmax=vmax_snap)
 
-cb2 = fig2.colorbar(im2, ax=ax2, shrink=0.85, pad=0.02)
-cb2.set_label(f"{varname} [{units} x {vfactor}]", fontsize=10)
+    cb2 = fig2.colorbar(im2, ax=ax2, shrink=0.85, pad=0.02)
+    cb2.set_label(f"{varname} [{units} x {vfactor}]", fontsize=10)
 
-ax2.set_title(
-    f"{varname}{lev_label}  |  {t_label}  (day {t_day:.2f})\n"
-    f"{icase}",
-    fontsize=11, fontweight="bold")
+    ax2.set_title(
+        f"{varname}{lev_label}  |  {t_label}  (day {t_day:.2f})\n"
+        f"{icase}",
+        fontsize=11, fontweight="bold")
 
-if savefig_snap:
-    fig2.savefig(out_snap, dpi=dpi, bbox_inches="tight")
-    print(f"  Saved: {out_snap}")
+    if savefig_snap:
+        fig2.savefig(out_snap, dpi=dpi, bbox_inches="tight")
+        print(f"  Saved: {out_snap}")
 
-plt.show()
-if not _interactive:
-    plt.close(fig2)
-# Free snapshot array and axes handles.
-del field_snap, im2, ax2, cb2
+    plt.show()
+    if not _interactive:
+        plt.close(fig2)
+    else:
+        print("  Snapshot plot displayed interactively.")
+        plt.show()
+    # Free snapshot array and axes handles.
+    del field_snap, im2, ax2, cb2
+
+
+# %%
+#in case it's done without making animations; close file handle ds
+# ds.close()
+# del ds
+
+# del da
 
 # %%
 # ===========================================================================
 # Section 3 – Animation
 # ===========================================================================
+
 savefig_anim  = True   # Section 3: save animation as MP4
 
 # Frame range: plot frames from anim_t_start to anim_t_end (0-based, inclusive)
@@ -468,12 +519,12 @@ savefig_anim  = True   # Section 3: save animation as MP4
 print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
 print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-plot_st_day  = 10   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
-plot_st_hour = 12
+plot_st_day  = 46   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+plot_st_hour = 13
 plot_st_time = np.datetime64(t0_date + pd.Timedelta(days=plot_st_day, hours=plot_st_hour))
 anim_t_start = np.searchsorted(ds['time'].values, plot_st_time)
 
-plot_ed_day  = 25   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
+plot_ed_day  = 55   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
 plot_ed_hour = 12
 plot_ed_time = np.datetime64(t0_date + pd.Timedelta(days=plot_ed_day, hours=plot_ed_hour))
 anim_t_end = np.searchsorted(ds['time'].values, plot_ed_time)
@@ -488,31 +539,6 @@ out_anim  = os.path.join(out_dir, f"{icase}.{varname}.{date_range_label_anim}.an
 
 # Frames per second in the output movie
 anim_fps = 2
-
-# %%
-
-def _update(frame_idx):
-    """Update the plot for one animation frame."""
-    field = get_2d_slice(da, frame_idx,
-                         lev_index=lev_idx if is_3d else None)
-    t_val  = pd.Timestamp(ds['time'].values[frame_idx])
-    t_day  = noleap_days_since(t_val, t0_date)
-
-    if plot_method == "contourf":
-        # contourf cannot be updated in place – clear and redraw
-        for coll in ax3.collections:
-            coll.remove()
-        im = ax3.contourf(X_km, Y_km, field, levels=levels_anim,
-                          cmap=cmap, extend="both")
-    else:
-        im3.set_array(field.ravel())
-        im = im3
-
-    title3.set_text(
-        f"{varname}{lev_label}  |  "
-        f"{t_val.strftime('%Y-%m-%d %H:%M UTC')}  (day {t_day:.2f})\n"
-        f"{icase}")
-    return (im, title3)
 
 # %%
 print("\n--- Section 3: animation ---")
@@ -545,6 +571,7 @@ print(f"  Animating frames {t_start} – {t_end} "
 #   colour-limit array stays small regardless of animation length.
 #   The actual animation save streams one frame at a time via _update()
 #   and is already memory-safe for any number of frames.
+
 clim_stride = max(1, len(frame_indices) // 200)   # sample ≤200 frames
 sample_indices = frame_indices[::clim_stride]
 print(f"  Computing colour limits from {len(sample_indices)} sample frames "
@@ -552,10 +579,34 @@ print(f"  Computing colour limits from {len(sample_indices)} sample frames "
 sample_data = da.isel(time=sample_indices)
 if is_3d:
     sample_data = sample_data.isel(lev=lev_idx)
+
 sample_arr = sample_data.values.astype(np.float32) * vfactor + vshift
 vmin_anim = float(np.nanpercentile(sample_arr, 2))
 vmax_anim = float(np.nanpercentile(sample_arr, 98))
+
 del sample_arr, sample_data   # free immediately
+
+# %%
+#change the min and max for certain cases
+if(varname == "imse"):
+    if(crange_name == "01"):
+        #for the beginning period
+        vmin_anim = 3.45
+        vmax_anim = 3.60
+    elif(crange_name == "02"):
+        #for the equilibrium period
+        vmin_anim = 3.60
+        vmax_anim = 3.65
+if(varname == "nc_m3_5000m"):
+    vmin_anim = 0
+    vmax_anim = 1.2e8
+
+if(varname == "ni_m3_5000m"):
+    vmin_anim = 0
+    vmax_anim = 10000
+
+print(f"  colour limits for animation: vmin={vmin_anim:.3g}, vmax={vmax_anim:.3g}")
+# %%
 
 # --- Set up figure ---
 fig3, ax3 = plt.subplots(figsize=(7, 6), constrained_layout=True)
@@ -607,9 +658,12 @@ if savefig_anim:
         print(f"  Saved GIF : {out_gif}")
         print("  Install imageio-ffmpeg to get MP4: pip install imageio imageio-ffmpeg")
 
-plt.show()
+
 if not _interactive:
     plt.close(fig3)
+else:
+    plt.show()
+
 # Free animation object and axes handles (the rendered frames stay displayed).
 del anim, im3, ax3, cb3
 
@@ -618,6 +672,10 @@ del anim, im3, ax3, cb3
 # Clean up
 # ---------------------------------------------------------------------------
 ds.close()
+del ds
+
+del da
+
 print("\nDone.")
 
 # %%

@@ -25,11 +25,13 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx3km_gpu"
-varname    = "imse"
+icase      = "RCE09_dx3km_gpu"
+varname    = "LW_flux_up_at_model_top"
 
 # File naming parameters
-stats_type = "INSTANT"
+#stats_type = "INSTANT"
+stats_type = "AVERAGE"
+
 file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
    #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
@@ -46,7 +48,7 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
-ts_end   = "2000-04-30"
+ts_end   = "2000-04-15"
 
 # %%
 
@@ -81,6 +83,8 @@ end_date   = np.datetime64(f"{edyear:04d}-{edmonth:02d}-{edday:02d}")
 date_range = np.arange(start_date, end_date + np.timedelta64(1, 'D'),
                        dtype='datetime64[D]')
 
+filevarname = varname
+
 if(file_type == "raw"):
     file_prefix  = f"{icase}.hist.{stats_type}.{frequency}."
     file_suffix  = ".nc"
@@ -88,9 +92,8 @@ elif(file_type == "cp"):
     file_prefix  = f"{icase}.cp.{stats_type}.{frequency}."
     file_suffix  = ".nc"
 else:
-    file_prefix  = f"{icase}.{varname}.{stats_type}.{frequency}."
+    file_prefix  = f"{icase}.{filevarname}.{stats_type}.{frequency}."
     file_suffix  = ".nc"
-
 
 date_strs = {str(d) for d in date_range}
 infiles = [f for f in sorted(glob.glob(os.path.join(in_dir, f"{file_prefix}*.nc")))
