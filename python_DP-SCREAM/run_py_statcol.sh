@@ -4,7 +4,7 @@ pydir="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM"
 pyscript="calc_statcol_DPSCREAM.py"
 
 python ${pydir}/${pyscript} --varname $1 \
-        --stat_type $2  \
+        --colstat_type $2  \
         --icase $3 \
         --infile $4 \
         --ifreq $5 \

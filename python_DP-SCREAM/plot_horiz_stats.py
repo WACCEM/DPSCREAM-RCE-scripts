@@ -33,13 +33,57 @@ sys.path.append("/global/common/software/m1867/python/ksa_env")
 
 from ks_pkg.plot_settings import init_style
 init_style()
+
+# %%
+# Helper: convert to pandas time index and optionally resample
+# ---------------------------------------------------------------------------
+
+def to_pandas_series(ds, field, freq):
+    """Return a pandas Series with a DatetimeIndex, optionally resampled.
+
+    Uses xarray's resample (cftime-aware) before converting to a standard
+    pandas DatetimeIndex so that matplotlib date formatters work correctly
+    even when the file uses a non-standard calendar (e.g. noleap).
+    """
+    da = ds[field]
+    if freq is not None:
+        da = da.resample(time=freq).mean()
+    # Convert cftime (or numpy datetime64) time values to pandas Timestamps
+    times = pd.DatetimeIndex([
+        pd.Timestamp(t.year, t.month, t.day, t.hour, t.minute, t.second)
+        for t in da['time'].values
+    ])
+    return pd.Series(da.values, index=times)
+
+
+def to_days(datetime_index, t0):
+    """Convert a pandas DatetimeIndex to fractional noleap days since t0.
+
+    Subtracts one day for every Feb 29 (Gregorian leap day) between t0 and
+    each timestamp so the axis matches the model's 365-day calendar.
+    """
+    def _noleap(t_val):
+        total_sec = (t_val - t0).total_seconds()
+        t_lo, t_hi = (t0, t_val) if total_sec >= 0 else (t_val, t0)
+        leap_days = sum(
+            1 for y in range(t_lo.year, t_hi.year + 1)
+            if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))
+            and t_lo < pd.Timestamp(y, 2, 29) <= t_hi
+        )
+        correction = leap_days if total_sec >= 0 else -leap_days
+        return total_sec / 86400.0 - correction
+    return np.array([_noleap(t) for t in datetime_index])
+
 # %%
 
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-varname = "VapWaterPath" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
-stats_type = "INSTANT" # AVERAGE, INSTANT
+#DP-SCREAM variable setting
+varname = "LW_flux_up_at_model_top" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
+stats_type = "AVERAGE" # AVERAGE, INSTANT
+
+varname_PINACLES = "toa_lw_up" #when PINACLES simulations are also plotted
 
 # List of simulation cases to overlay.  Each entry is a dict with:
 #   label    – legend label
@@ -73,87 +117,60 @@ cases = [
     #     "color"   : "red",
     #     "lwide"  : 2.0,
     # },
-    {
-        "label"   : "v310_dx3km_gpu  (1-hr)",
-        "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-                     "/RCE02_dx3km_gpu/havg"
-                     f"/RCE02_dx3km_gpu.{varname}"
-                     f".havg.{stats_type}.2000-01-01_to_2000-05-15.nc"),
-        "color"   : "blueviolet",
-        "lwide"  : 2.0,
-    },
     # {
-    #     "label"   : "v302_3km_SHOC_lambda  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE03_dx3km_gpu/havg"
-    #                  f"/RCE03_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-05-10.nc"),
-    #     "color"   : "green",
-    #     "lwide"  : 1.0,
-    # },
-    # {
-    #     "label"   : "v302_3km_no_subsidence  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE04_dx3km_gpu/havg"
-    #                  f"/RCE04_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-01-31.nc"),
+    #     "label"   : "RCEMIP_PINACLES_dx3km_150x150km  (1-hr)",
+    #     "varname" : "VWP",
+    #     "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE03_150x150_1km/havg"
+    #                  "/RCE03_150x150_1km.{vname}"
+    #                  ".havg.day00_to_60.nc"),
     #     "color"   : "orange",
-    #     "lwide"  : 1.0,
-    # },
-    # {
-    #     "label"   : "v310_3km_no_subsidence  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE05_dx3km_gpu/havg"
-    #                  f"/RCE05_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-01-31.nc"),
-    #     "color"   : "purple",
-    #     "lwide"  : 1.0,
-    # },
-    # {
-    #     "label"   : "v310_3km_ccn_old  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE06_dx3km_gpu/havg"
-    #                  f"/RCE06_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-01-31.nc"),
-    #     "color"   : "skyblue",
-    #     "lwide"  : 1.0,
-    # },
-    # {
-    #     "label"   : "v310_3km_highsolar  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE07_dx3km_gpu/havg"
-    #                  f"/RCE07_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-01-31.nc"),
-    #     "color"   : "pink",
     #     "lwide"  : 3.0,
     # },
     # {
-    #     "label"   : "v310_3km_rcemip  (1-hr)",
+    #     "label"   : "v310_dx3km_gpu  (1-hr)",
     #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE08_dx3km_gpu/havg"
-    #                  f"/RCE08_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-04-30.nc"),
-    #     "color"   : "yellow",
-    #     "lwide"  : 3.0,
+    #                  "/RCE02_dx3km_gpu/havg"
+    #                  f"/RCE02_dx3km_gpu.{varname}"
+    #                  f".havg.{stats_type}.2000-01-01_to_2000-05-15.nc"),
+    #     "color"   : "blueviolet",
+    #     "lwide"  : 2.0,
+    # },
+    # {
+    #     "label"   : "RCEMIP_DPSCREAMv310_dx3km_600x600km  (1-hr)",
+    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
+    #                  "/RCE09_dx3km_gpu/havg"
+    #                  f"/RCE09_dx3km_gpu.{varname}"
+    #                  f".havg.{stats_type}.2000-01-01_to_2000-04-15.nc"),
+    #     "color"   : "gray",
+    #     "lwide"  : 2.0,
     # },
     {
-        "label"   : "RCEMIP_DPSCREAMv310_dx3km_600x600km  (1-hr)",
+        "label"   : "RCEMIP_DPSCREAMv310_dx1km_600x600km v2",
         "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-                     "/RCE09_dx3km_gpu/havg"
-                     f"/RCE09_dx3km_gpu.{varname}"
-                     f".havg.{stats_type}.2000-01-01_to_2000-04-15.nc"),
-        "color"   : "black",
+                     "/RCE02_dx1km_gpu/havg"
+                     f"/RCE02_dx1km_gpu.{varname}"
+                     f".havg.{stats_type}.2000-01-01_to_2000-03-15.nc"),
+        "color"   : "Blue",
         "lwide"  : 3.0,
     },
     {
-        "label"   : "RCEMIP_PINACLES_dx3km_150x150km  (1-hr)",
-        "varname" : "VWP",
-        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE03_150x150_1km/havg"
-                     "/RCE03_150x150_1km.{vname}"
-                     ".havg.day00_to_60.nc"),
-        "color"   : "orange",
+        "label"   : "PINACLES_dx1km_600x600km v0",
+        "varname" : varname_PINACLES,
+        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/havg"
+                     "/RCE00_dx1km_600x600km.{vname}"
+                     ".havg.day00_to_59.nc"),
+        "color"   : "lightgreen",
         "lwide"  : 3.0,
     },
+    {
+        "label"   : "RCEMIP_PINACLES_dx1km_600x600km  (1-hr)",
+        "varname" : varname_PINACLES,
+        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE01_dx1km_600x600km/havg"
+                     "/RCE01_dx1km_600x600km.{vname}"
+                     ".havg.day00_to_44.nc"),
+        "color"   : "green",
+        "lwide"  : 3.0,
+    }
 ]
 
 # Optional: resample / smooth the time series before plotting.
@@ -200,47 +217,7 @@ var_var_0  = f"{first_vname}_var"
 units     = datasets[0][mean_var_0].attrs.get("units", "")
 var_units = datasets[0][var_var_0].attrs.get("units", f"({units})^2") \
             if var_var_0 in datasets[0] else f"({units})^2"
-# %%
 
-# ---------------------------------------------------------------------------
-# Helper: convert to pandas time index and optionally resample
-# ---------------------------------------------------------------------------
-
-def to_pandas_series(ds, field, freq):
-    """Return a pandas Series with a DatetimeIndex, optionally resampled.
-
-    Uses xarray's resample (cftime-aware) before converting to a standard
-    pandas DatetimeIndex so that matplotlib date formatters work correctly
-    even when the file uses a non-standard calendar (e.g. noleap).
-    """
-    da = ds[field]
-    if freq is not None:
-        da = da.resample(time=freq).mean()
-    # Convert cftime (or numpy datetime64) time values to pandas Timestamps
-    times = pd.DatetimeIndex([
-        pd.Timestamp(t.year, t.month, t.day, t.hour, t.minute, t.second)
-        for t in da['time'].values
-    ])
-    return pd.Series(da.values, index=times)
-
-
-def to_days(datetime_index, t0):
-    """Convert a pandas DatetimeIndex to fractional noleap days since t0.
-
-    Subtracts one day for every Feb 29 (Gregorian leap day) between t0 and
-    each timestamp so the axis matches the model's 365-day calendar.
-    """
-    def _noleap(t_val):
-        total_sec = (t_val - t0).total_seconds()
-        t_lo, t_hi = (t0, t_val) if total_sec >= 0 else (t_val, t0)
-        leap_days = sum(
-            1 for y in range(t_lo.year, t_hi.year + 1)
-            if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))
-            and t_lo < pd.Timestamp(y, 2, 29) <= t_hi
-        )
-        correction = leap_days if total_sec >= 0 else -leap_days
-        return total_sec / 86400.0 - correction
-    return np.array([_noleap(t) for t in datetime_index])
 
 # %%
 savefig = False

@@ -4,7 +4,7 @@
 ##SBATCH -t 02:00:00
 #SBATCH -q debug
 #SBATCH -t 00:30:00
-#SBATCH -J statcol
+#SBATCH -J havgcol
 #SBATCH --exclusive
 #SBATCH -A m1867
 #SBATCH --mail-type=END,FAIL
@@ -19,27 +19,29 @@ conda activate dpscream_analysis
 
 pydir="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM"
 
-icase="RCE02_dx1km_gpu"
-ihist="hist.INSTANT.nhours_x1"
+icase="RCE10_dx3km_gpu"
 ifreq="nhours_x1"
 indir="/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/${icase}/run"
+#istat="INSTANT"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
+#varname="T_mid"
+istat="AVERAGE"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
+varname="rrtmgp_T_mid_tend"
+ihist="hist.${istat}.${ifreq}"
 
-varname="diag_equiv_reflectivity"
-colstat_type="max"
 # Define output time range
 iyear=2000
 stmon=1
-stday=1
+stday=16
 
-edmon=3
-edday=15
+edmon=2
+edday=28
 
 stmonp=$(printf "%02d" $stmon)
 stdayp=$(printf "%02d" $stday)
 edmonp=$(printf "%02d" $edmon)
 eddayp=$(printf "%02d" $edday)
 
-runscript="run_py_statcol.sh"
+runscript="run_py_havg_col.sh"
 
 #strip the file extension from runscript for naming input and log files
 inputfile="${runscript%.*}_${icase}_${stmonp}${stdayp}-${edmonp}${eddayp}.txt"
@@ -73,7 +75,7 @@ for imon in $(seq $stmon $edmon); do
         imonp=$(printf "%02d" $imon)
         idayp=$(printf "%02d" $iday)
         for f in ${indir}/${icase}.${ihist}.${iyear}-${imonp}-${idayp}*.nc; do
-            echo "${varname} ${colstat_type} ${icase} ${f} ${ifreq}" >> ${inputfile}
+            echo "${varname} ${icase} ${f} ${ifreq} ${istat}" >> ${inputfile}
         done
     done
 done
@@ -85,7 +87,7 @@ echo "starting parallel processing"
 # --jobs 32: memory-limited by calc_imse peak RSS (~17 GB/job) on a 512 GB --exclusive node.
 # floor(512 GB / 17 GB) = 30; use 28 to leave headroom for OS and NumPy buffers.
 # Do NOT raise above 32 on 512 GB nodes or above 4 for interactive login-node testing.
-parallel --jobs 64 --colsep ' ' -a ${inputfile} ${pydir}/${runscript} {1} {2} {3} {4} {5} > ${logfile} 2>&1
+parallel --jobs 12 --colsep ' ' -a ${inputfile} ${pydir}/${runscript} {1} {2} {3} {4} {5} > ${logfile} 2>&1
 
 echo "done"
 echo "Parallel processing logs saved to: ${logfile}"

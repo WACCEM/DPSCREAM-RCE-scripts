@@ -84,26 +84,27 @@ def _update(frame_idx):
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx3km_gpu" #"RCE01_dx1km_gpu_branch"
-varname    = "LW_flux_up_at_model_top"
+icase      = "RCE02_dx1km_gpu" #"RCE01_dx1km_gpu_branch"
+varname    = "precip_total_surf_mass_flux"
 crange_name = None
 # File naming parameters (must match regrid_DPSCREAM.py output convention)
-#stats_type = "INSTANT"
-stats_type = "AVERAGE"
 frequency  = "nhours_x1"
-dstgrid    = "PINACLES_YX_dx3km_600x600km"
+dstgrid    = "PINACLES_YX_dx1km_600x600km"
+#history file stats type; will be set and overwritten below for know variables
+stats_type = "INSTANT"
+#stats_type = "AVERAGE"
 
 # Input directory containing the remapped daily files
 in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date range to load (inclusive, YYYY-MM-DD)
 iyear = 2000
-#ts_start = f"{iyear}-01-13"
-#ts_end   = f"{iyear}-01-17"
-#ts_start = f"{iyear}-02-15"
-#ts_end   = f"{iyear}-02-25"
-ts_start = f"{iyear}-03-01"
-ts_end   = f"{iyear}-03-31"
+# ts_start = f"{iyear}-03-05"
+# ts_end   = f"{iyear}-03-15"
+ts_start = f"{iyear}-01-01"
+ts_end   = f"{iyear}-01-10"
+# ts_start = f"{iyear}-03-01"
+# ts_end   = f"{iyear}-03-31"
 
 # For 3-D variables (time, lev, lat, lon): choose which level index to plot.
 # Ignored for 2-D variables.
@@ -131,6 +132,13 @@ dpi = 150   # figure resolution for raster saves
 vfactor = 1.0
 vshift = 0.0
 
+instant_list = ["diag_equiv_reflectivity_max", "imse"] #state
+average_list = ["LW_flux_up_at_model_top","precip_total_surf_mass_flux"]  #flux and tendencies, possibly except for those used feature tracking
+if(varname in instant_list):
+    stats_type = "INSTANT"
+elif(varname in average_list):
+    stats_type = "AVERAGE"
+
 # Colormap – use a cmocean perceptually-uniform map.
 # Good choices: cmocean.cm.thermal (temperature/energy), cmocean.cm.haline
 # (moisture), cmocean.cm.rain (precipitation), cmocean.cm.balance (anomalies).
@@ -146,6 +154,12 @@ elif(varname == "LW_flux_up_at_model_top"):
     p = 2.0 #this exponent 2.0 seems to reproduce the colorbar in Fig. 2 of Wing et al., 2020
     colors = cmaps.gray_r(np.linspace(0.0, 1.0, 256) ** p)
     cmap = mcolors.LinearSegmentedColormap.from_list('gray_r_shifted', colors)
+elif(varname == "diag_equiv_reflectivity_max"):
+    #cmap = cmaps.radar_1
+    cmap = cmaps.NMCRef
+elif(varname == "precip_total_surf_mass_flux"):
+    cmap = cmaps.precip2_17lev
+
 
 
 # %%
@@ -300,7 +314,7 @@ del im1, ax1, cb1
 # ===========================================================================
 # snapshot index (0-based index into the concatenated time axis)
 # ---------------------------------------------------------------------------
-doplot=True
+doplot=False
 if(doplot):
     print(f"\n--- Section 2: snapshot at time index ---")
     print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
@@ -379,14 +393,22 @@ savefig_anim  = True   # Section 3: save animation as MP4
 print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
 print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-plot_st_day  = 46   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
 plot_st_hour = 13
-plot_st_time = np.datetime64(t0_date + pd.Timedelta(days=plot_st_day, hours=plot_st_hour))
-anim_t_start = np.searchsorted(ds['time'].values, plot_st_time)
+plot_st_day  = -1  # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+#set to -1 to start from the start_date (ts_start) specified at the beginning of the script
+if(plot_st_day > -1):
+    plot_st_time = np.datetime64(t0_date + pd.Timedelta(days=plot_st_day, hours=plot_st_hour))
+else:
+    plot_st_time = ds['time'].values[0]
 
-plot_ed_day  = 55   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
 plot_ed_hour = 12
-plot_ed_time = np.datetime64(t0_date + pd.Timedelta(days=plot_ed_day, hours=plot_ed_hour))
+plot_ed_day  = -1   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
+if(plot_ed_day > -1):
+    plot_ed_time = np.datetime64(t0_date + pd.Timedelta(days=plot_ed_day, hours=plot_ed_hour))
+else:
+    plot_ed_time = ds['time'].values[-1]
+
+anim_t_start = np.searchsorted(ds['time'].values, plot_st_time)
 anim_t_end = np.searchsorted(ds['time'].values, plot_ed_time)
 
 #anim_t_start = 0
@@ -464,6 +486,13 @@ if(varname == "nc_m3_5000m"):
 if(varname == "ni_m3_5000m"):
     vmin_anim = 0
     vmax_anim = 10000
+
+if(varname == "precip_total_surf_mass_flux"):
+    vmin_anim = 0
+    if plot_ed_time < np.datetime64('2000-01-11T00:00:00'):
+        vmax_anim = 20.0  # or whatever limit you prefer
+    elif plot_st_time > np.datetime64('2000-03-01T00:00:00'):
+        vmax_anim = 40.0
 
 print(f"  colour limits for animation: vmin={vmin_anim:.3g}, vmax={vmax_anim:.3g}")
 # %%

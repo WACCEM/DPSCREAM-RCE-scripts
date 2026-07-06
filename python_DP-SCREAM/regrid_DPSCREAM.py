@@ -25,8 +25,8 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE09_dx3km_gpu"
-varname    = "LW_flux_up_at_model_top"
+icase      = "RCE02_dx1km_gpu"
+varname    = "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
 
 # File naming parameters
 #stats_type = "INSTANT"
@@ -48,7 +48,7 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
-ts_end   = "2000-04-15"
+ts_end   = "2000-03-15"
 
 # %%
 
@@ -57,8 +57,8 @@ ts_end   = "2000-04-15"
 # desired regular Cartesian destination grid.
 remap_method = "patch"
 weightdir  = "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/"
-srcgrid = "DPSCREAM_RCE_dx3km_600x600km"
-dstgrid = "PINACLES_YX_dx3km_600x600km"
+srcgrid = "DPSCREAM_RCE_dx1km_600x600km"
+dstgrid = "PINACLES_YX_dx1km_600x600km"
 weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
 
 # Destination grid spacing in metres – used to compute Cartesian x/y
@@ -344,6 +344,10 @@ for infile in infiles:
         encoding={
             varname: {'_FillValue': fill_val, 'dtype': 'float32'},
             'time'  : {'_FillValue': None},
+            'lat'   : {'_FillValue': None},
+            'lon'   : {'_FillValue': None},
+            'x'     : {'_FillValue': None},
+            'y'     : {'_FillValue': None},
         })
     print(f"  Saved regridded output: {regrid_out}")
 

@@ -6,7 +6,7 @@ of a given variable from DP-SCREAM output.
 Usage:
     module load python
     conda activate dpscream_analysis
-    python calc_statcol_DPSCREAM.py --varname nc --stat_type int [--icase ICASE] ...
+    python calc_statcol_DPSCREAM.py --varname nc --colstat_type int [--icase ICASE] ...
 """
 # %%
 import argparse
@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("--varname", required=True,
                     help="Name of the variable to process (e.g., 'nc')")
-parser.add_argument("--stat_type", required=True, choices=["int", "avg", "max", "min"],
+parser.add_argument("--colstat_type", required=True, choices=["int", "avg", "max", "min"],
                     help="Type of statistic to calculate: 'int' (mass-weighted sum), 'avg' (mass-weighted mean), 'max', or 'min'")
 parser.add_argument("--icase",   default="scream_cpu_dpxx_RCE_dx1km",
                     help="Case name (default: scream_cpu_dpxx_RCE_dx1km)")
@@ -45,28 +45,28 @@ parser.add_argument("--iday",    type=int, default=1,
                     help="Day component of timestamp (default: 1)")
 parser.add_argument("--isecond", type=int, default=0,
                     help="Second component of timestamp (default: 0)")
-# parser.add_argument("--in_dir", type=str, default=None,
-#                     help="Input directory (overrides default path)")
+parser.add_argument("--stats_type",  type=str, default="INSTANT",
+                    help="Stats type (default: INSTANT)")
 parser.add_argument("--ifreq",  type=str, default="nmins_x5",
-                    help="Input frequency (overrides default path)")
+                    help="Input frequency  (default: nmins_x5)")
 args = parser.parse_args()
 
 varname = args.varname
-stat_type = args.stat_type
+colstat_type = args.colstat_type
 icase   = args.icase
 infile  = args.infile
 iyear   = args.iyear
 imonth  = args.imonth
 iday    = args.iday
 isecond = args.isecond
-#in_dir  = args.in_dir
+stats_type  = args.stats_type
 ifreq   = args.ifreq
 
 
 # %%
 #for testing
 # varname = "nc_m3"
-# stat_type = "max"
+# colstat_type = "max"
 # icase   ="RCE02_dx3km_gpu"
 # in_dir  = "/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE02_dx3km_gpu/run"
 
@@ -90,9 +90,9 @@ if infile is not None:
     timestamp = match.group()
 else:
     timestamp = f"{iyear:04d}-{imonth:02d}-{iday:02d}-{isecond:05d}"
-    in_basename  = f"{icase}.hist.INSTANT.{ifreq}.{timestamp}.nc"
+    in_basename  = f"{icase}.hist.{stats_type}.{ifreq}.{timestamp}.nc"
 
-out_basename = f"{icase}.{varname}_{stat_type}.INSTANT.{ifreq}.{timestamp}.nc"
+out_basename = f"{icase}.{varname}_{colstat_type}.{stats_type}.{ifreq}.{timestamp}.nc"
 
 #input_file  = os.path.join(in_dir, in_basename)
 output_file = os.path.join(out_dir, out_basename)
@@ -152,7 +152,7 @@ if('_m3' in varname):
     original_units = '1/m3'
 # %%
 # Ensure var_data can be broadcasted with dm if we are doing int or avg
-if stat_type in ["int", "avg"]:
+if colstat_type in ["int", "avg"]:
     # Compute layer pressure thickness dp(t, col, lev)
     p_int = (hyai[np.newaxis, np.newaxis, :] * P0
         + hybi[np.newaxis, np.newaxis, :] * ps[:, :, np.newaxis])
@@ -171,25 +171,25 @@ if stat_type in ["int", "avg"]:
     else:
         var_mid = var_data
         
-    if stat_type == "int":
+    if colstat_type == "int":
         stat_data = np.sum(var_mid * dm, axis=vert_axis)
         long_name_prefix = "Vertically integrated (mass-weighted)"
-    elif stat_type == "avg":
+    elif colstat_type == "avg":
         stat_data = np.sum(var_mid * dm, axis=vert_axis) / np.sum(dm, axis=vert_axis)
         long_name_prefix = "Vertical mean (mass-weighted)"
 else:
-    if stat_type == "max":
+    if colstat_type == "max":
         stat_data = np.max(var_data, axis=vert_axis)
         long_name_prefix = "Vertical maximum"
-    elif stat_type == "min":
+    elif colstat_type == "min":
         stat_data = np.min(var_data, axis=vert_axis)
         long_name_prefix = "Vertical minimum"
 
-out_varname = f"{varname}_{stat_type}"
+out_varname = f"{varname}_{colstat_type}"
 
 os.makedirs(out_dir, exist_ok=True)
 
-if stat_type == "int":
+if colstat_type == "int":
     out_units = f"({original_units}) * kg m^-2"
 else:
     out_units = original_units
@@ -205,7 +205,7 @@ ds_out = xr.Dataset(
                 "long_name": f"{long_name_prefix} of {varname}",
                 "units": out_units,
                 "original_variable": varname,
-                "statistic_type": stat_type,
+                "statistic_type": colstat_type,
             },
         ),
         "lat": lat,
@@ -216,7 +216,7 @@ ds_out = xr.Dataset(
 ds_out.attrs.update({
     "source_file": in_basename,
     "script": os.path.basename(__file__),
-    "description": f"Calculated column {stat_type} for variable {varname}.",
+    "description": f"Calculated column {colstat_type} for variable {varname}.",
 })
 
 print(f"Writing: {output_file}")

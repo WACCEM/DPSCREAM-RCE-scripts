@@ -43,16 +43,16 @@ def extract_timestamp(filepath):
 
 # %%
 # --- CONFIGURATION ---
-icase      = "RCE09_dx3km_gpu"
+icase      = "RCE02_dx1km_gpu"
 in_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
 #in_dir     = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
 #out_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed"
 #in_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/run"
 out_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw"
 
-varname    = "LW_flux_up_at_model_top"
+varname    = "precip_total_surf_mass_flux"
 zlev = None
-#zlev = 79
+#zlev = 97
 # File naming parameters
 stats_type = "AVERAGE"
 #stats_type = "INSTANT"
@@ -66,7 +66,7 @@ frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct th
 
 # Date-range timestamps (inclusive) matching filename format YYYY-MM-DD
 ts_start = "2000-01-01"
-ts_end   = "2000-04-15"
+ts_end   = "2000-03-15"
 
 
 # %%
@@ -347,6 +347,11 @@ for idct in range(ndays):
         coords={'time': time_today_extended},
         attrs=var_today_extended.attrs,
     )
+
+    if varname.startswith("precip_") and varname.endswith("_surf_mass_flux"):
+        if var_today_extended.attrs.get("units", "") == "m/s":
+            var_today_extended = var_today_extended * 3600000.0
+            var_today_extended.attrs["units"] = "mm/hour"
 
     ds_vars = {out_varname: xr.DataArray(var_today_extended.values, dims=var_today_extended.dims, coords={'time': time_today_extended}, attrs=var_today_extended.attrs)}
     if lat is not None:

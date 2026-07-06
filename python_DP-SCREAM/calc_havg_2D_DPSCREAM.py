@@ -7,7 +7,10 @@ Reads concatenated DP-SCREAM output produced by concat_DPSCREAM.py and
 computes the horizontal domain average (arithmetic mean over all ncol
 columns) for each requested variable, yielding a pure time series
 (or time × lev for 3-D fields) with all spatial information collapsed.
-
+For 3D variables, it is recommended not to use this sciript but use 
+another script `` to calculate horizontal average and concatenate for each day.
+This is particularly the case for running the script on a login node and with
+high-frequency history files. 
 Output files are written to out_dir:
   {casename}.{varname}.havg.{stats_type}.{out_tag}.nc
 """
@@ -35,8 +38,8 @@ from check_output_stream import get_output_stream
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE09_dx3km_gpu"
-stats_type = "INSTANT" # "INSTANT" or "AVERAGE" #later modified depending on the variable using the get_output_stream function, which checks the variable name against the output stream types to determine which one it belongs to. If the variable is not found in either stream, it will be skipped with a warning.
+icase      = "RCE02_dx1km_gpu"
+stats_type = "AVERAGE" # "INSTANT" or "AVERAGE" #later modified depending on the variable using the get_output_stream function, which checks the variable name against the output stream types to determine which one it belongs to. If the variable is not found in either stream, it will be skipped with a warning.
 
 file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
@@ -48,7 +51,7 @@ frequency = "nhours_x1" # e.g. "nmins_x5" (= 5 minutes), "nhours_x1" (= 1 hour),
 # Variables to process.  Use ["all"] to process every ncol-based variable
 # found in the input file(s). All variables must have the same file_type, stats_type, and frequency as specified above.
 #vartodo = ["VapWaterPath"]  #,"LW_flux_up_at_model_top",VapWaterPath
-varname = "VapWaterPath" # 
+varname = "precip_total_surf_mass_flux" # 
 
 # Input files produced by concat_DPSCREAM.py.
 if(file_type == "raw"):
@@ -61,7 +64,7 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/havg")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
-ts_end   = "2000-04-15"
+ts_end   = "2000-03-15"
 
 # %%
 
@@ -176,7 +179,6 @@ if 'ncol' not in ds.dims:
     raise ValueError("Input dataset does not contain an 'ncol' dimension.")
 
 time_coord = ds['time']
-lev_vals   = ds['lev'].values if 'lev' in ds else None
 
 # %%
 
@@ -184,33 +186,34 @@ lev_vals   = ds['lev'].values if 'lev' in ds else None
 data = ds[varname].values.astype(np.float32)
 #data[data >= 1e30] = np.nan
 
+if varname.startswith("precip_") and varname.endswith("_surf_mass_flux"):
+    if ds[varname].attrs.get("units", "") == "m/s":
+        data = data * 3600000.0
+
+
 dims = ds[varname].dims
+vert_dim = None
 if 'ncol' in dims and len(dims) == 2:
     vdim = '2D'
 elif 'ncol' in dims and ('lev' in dims or 'ilev' in dims) \
         and len(dims) == 3:
     vdim = '3D'
+    vert_dim = 'lev' if 'lev' in dims else 'ilev'
 
-# Ensure 3-D data is (time, ncol, lev)
-if vdim == '3D':
-    orig_dims = ds[varname].dims
-    if orig_dims.index('ncol') == 1:
-        # (time, lev, ncol) -> (time, ncol, lev)
-        data = data.transpose(0, 2, 1)
+ncol_axis = dims.index('ncol')
 
-# axis=1 collapses ncol:
-#   2-D: (ntime, ncol)       -> (ntime,)
-#   3-D: (ntime, ncol, nlev) -> (ntime, nlev)
 print("  Computing horizontal domain average ...")
-havg = np.nanmean(data, axis=1)
-hvar = np.nanvar(data, axis=1)
+havg = np.nanmean(data, axis=ncol_axis)
+hvar = np.nanvar(data, axis=ncol_axis)
 
 if vdim == '2D':
     havg_dims   = ('time',)
     havg_coords = {'time': time_coord}
 else:
-    havg_dims   = ('time', 'lev')
-    havg_coords = {'time': time_coord, 'lev': lev_vals}
+    havg_dims   = tuple(d for d in dims if d != 'ncol')
+    havg_coords = {d: ds[d].values for d in havg_dims if d in ds}
+    if 'time' in havg_coords:
+        havg_coords['time'] = time_coord
 
 havg_attrs = dict(ds[varname].attrs)
 havg_attrs['description'] = (
@@ -219,29 +222,91 @@ havg_attrs['description'] = (
 hvar_attrs = dict(ds[varname].attrs)
 hvar_attrs['description'] = (
     'Horizontal domain variance over all ncol columns')
+
 if 'units' in hvar_attrs and hvar_attrs['units']:
     hvar_attrs['units'] = f"({hvar_attrs['units']})^2"
 
+if varname.startswith("precip_") and varname.endswith("_surf_mass_flux"):
+    if ds[varname].attrs.get("units", "") == "m/s":
+        havg_attrs['units'] = 'mm/hour'
+        hvar_attrs['units'] = '(mm/hour)^2'
+
+data_vars_dict = {
+    varname: xr.DataArray(havg, dims=havg_dims, coords=havg_coords,
+                          attrs=havg_attrs),
+    f"{varname}_var": xr.DataArray(hvar, dims=havg_dims, coords=havg_coords,
+                                   attrs=hvar_attrs)
+}
+
+ds_opened_extra = None
+if vdim == '3D':
+    # If using processed files, we might need to load ps and hybrid coords from raw files
+    ds_extra = ds
+    needed_extra = ['ps']
+    if vert_dim == 'lev':
+        needed_extra.extend(['hyam', 'hybm'])
+    elif vert_dim == 'ilev':
+        needed_extra.extend(['hyai', 'hybi'])
+        
+    missing_extra = [v for v in needed_extra if v not in ds_extra]
+    if missing_extra:
+        raw_dir = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
+        raw_prefix = f"{icase}.hist.{stats_type}.{frequency}."
+        raw_files = sorted(glob.glob(os.path.join(raw_dir, f"{raw_prefix}*.nc")))
+        raw_infiles = [f for f in raw_files if os.path.basename(f)[len(raw_prefix):len(raw_prefix)+10] in date_strs]
+        if raw_infiles:
+            if len(raw_infiles) == 1:
+                ds_opened_extra = xr.open_dataset(raw_infiles[0])
+            else:
+                ds_opened_extra = xr.open_mfdataset(raw_infiles, combine='by_coords', parallel=False)
+            ds_extra = ds_opened_extra
+
+    if 'ps' in ds_extra:
+        ps_data = ds_extra['ps'].values.astype(np.float32)
+        ps_dims = ds_extra['ps'].dims
+        if 'ncol' in ps_dims:
+            ps_ncol_axis = ps_dims.index('ncol')
+            ps_havg = np.nanmean(ps_data, axis=ps_ncol_axis)
+            ps_havg_dims = tuple(d for d in ps_dims if d != 'ncol')
+            ps_havg_coords = {d: ds_extra[d].values for d in ps_havg_dims if d in ds_extra}
+            if 'time' in ps_havg_coords:
+                ps_havg_coords['time'] = time_coord
+            
+            ps_attrs = dict(ds_extra['ps'].attrs)
+            ps_attrs['description'] = 'Horizontal domain average over all ncol columns'
+            
+            data_vars_dict['ps'] = xr.DataArray(
+                ps_havg, dims=ps_havg_dims, coords=ps_havg_coords, attrs=ps_attrs
+            )
+        else:
+            data_vars_dict['ps'] = ds_extra['ps']
+
+    for coeff in needed_extra[1:]:
+        if coeff in ds_extra:
+            data_vars_dict[coeff] = ds_extra[coeff]
+
 ds_havg = xr.Dataset(
-    {varname: xr.DataArray(havg, dims=havg_dims, coords=havg_coords,
-                            attrs=havg_attrs),
-        f"{varname}_var": xr.DataArray(hvar, dims=havg_dims, coords=havg_coords,
-                                    attrs=hvar_attrs)},
+    data_vars_dict,
     attrs={
         'processing' : 'horizontal domain average (mean over ncol) and variance',
     }
 )
-if lev_vals is not None and vdim == '3D':
-    ds_havg['lev'].attrs = {
-        'units': 'mb', 'long_name': 'hybrid level at midpoints'}
+
+if vdim == '3D':
+    if vert_dim == 'lev' and 'lev' in ds_havg:
+        ds_havg['lev'].attrs = {'units': 'mb', 'long_name': 'hybrid level at midpoints'}
+    elif vert_dim == 'ilev' and 'ilev' in ds_havg:
+        ds_havg['ilev'].attrs = {'units': 'mb', 'long_name': 'hybrid level at interfaces'}
 
 havg_out = os.path.join(
     out_dir,
     f"{icase}.{varname}.havg.{stats_type}.{out_tag}.nc")
-ds_havg.to_netcdf(havg_out, encoding={'time': {'_FillValue': None}})
+ds_havg.to_netcdf(havg_out, encoding={'time': {'_FillValue': None}}, unlimited_dims=["time"])
 print(f"  Saved domain-average: {havg_out}")
 
 del ds_havg, data, havg, hvar
+if ds_opened_extra is not None:
+    ds_opened_extra.close()
 # %%
 
 ds.close()
