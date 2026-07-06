@@ -161,15 +161,17 @@ Source: `scream_test9_output_inst_1hour.yaml`
 | `qv_2m` | 2-m water vapour mixing ratio | Coupler | `kg/kg` |
 | `wind_speed_10m` | 10-m wind speed | Coupler | `m/s` |
 
-### Regridded variables for MCS tracking and spatial anlyses
+### Processed and Regridded variables for MCS tracking and spatial anlyses
 
 File Name Format: `${CASE}.${variable name}.[INSTANT/AVERAGE].${frequency}.${Destination grid}.YYYY-MM-DD.nc`
 
 DIrectory: `/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/remapped`
 
+Grid: The PINACLES 600x 600 km Cartesian grid with 1-km dx
+
 | Variable | Description | Units |
 |----------|-------------|--------|
 | `precip_total_surf_mass_flux`| Precipitation total surface mass flux | mm/hour |
 | `LW_flux_up_at_model_top` | Upward LW flux at model top | W/m2 |
-| `diag_equiv_reflectivity_max` | Vertically Integrated Moist Static Energy | - |
+| `diag_equiv_reflectivity_max` | Vertical maximum of diag_equiv_reflectivity | - |
 | `imse` | Vertically Integrated Moist Static Energy | J/m2 |
