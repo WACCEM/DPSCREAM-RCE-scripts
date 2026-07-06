@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # %% [markdown]
-# # Check Initial Condition File
+# # Check Initial Condition Files
 # 
 # To run this script on NERSC (e.g., Perlmutter), execute the following commands in your terminal:
 # ```bash
@@ -18,36 +18,44 @@ import xarray as xr
 import matplotlib.pyplot as plt
 
 # %%
-# Define file path
-#file_path = "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE_300K_iopfile_4scam.nc"
-file_path = "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE09_dx3km_gpu_equilibrium_300K_profile.nc"
+# Define file paths
+file_paths = [
+    "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE_300K_iopfile_4scam.nc",
+    "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE09_dx3km_gpu_equilibrium_300K_profile.nc"
+]
 
-if not os.path.exists(file_path):
-    raise FileNotFoundError(f"File not found: {file_path}")
+for fp in file_paths:
+    if not os.path.exists(fp):
+        raise FileNotFoundError(f"File not found: {fp}")
 
-# Open the dataset
-ds = xr.open_dataset(file_path)
+# Open the datasets
+datasets = {}
+for fp in file_paths:
+    fname = os.path.basename(fp)
+    datasets[fname] = xr.open_dataset(fp)
 
-# Extract single value coordinates
-times = ds['time'].values
-lat = ds['lat'].values[0]
-lon = ds['lon'].values[0]
+# Extract shared coordinates from the first dataset
+first_ds = list(datasets.values())[0]
+times = first_ds['time'].values
+lat = first_ds['lat'].values[0]
+lon = first_ds['lon'].values[0]
+p = first_ds['lev'].values
+top_to_bottom = p[0] < p[-1]
 
-print(f"File: {file_path}")
 print(f"Coordinates: lat={lat}, lon={lon}, time={times}")
+print(f"Loaded {len(datasets)} files.")
 
 # %%
 # ---------------------------------------------------------
-# Print single-level variables
+# Determine Variable Types
 # ---------------------------------------------------------
-print("\n--- Single-Level Variables ---")
 single_level_vars = []
 multi_level_vars = []
 
 # Exclude dimensions/coordinates and bounds
-exclude_vars = list(ds.coords.keys()) + ['bdate', 'tsec', 'time_bnds']
+exclude_vars = list(first_ds.coords.keys()) + ['bdate', 'tsec', 'time_bnds']
 
-for var_name, var in ds.variables.items():
+for var_name, var in first_ds.variables.items():
     if var_name in exclude_vars:
         continue
     if 'lev' in var.dims:
@@ -55,69 +63,71 @@ for var_name, var in ds.variables.items():
     else:
         single_level_vars.append(var_name)
 
+# %%
+# ---------------------------------------------------------
+# Print single-level variables
+# ---------------------------------------------------------
+print("\n--- Single-Level Variables ---")
+
 for var_name in single_level_vars:
-    vals = ds[var_name].values
-    units = ds[var_name].attrs.get('units', '')
-    long_name = ds[var_name].attrs.get('long_name', var_name)
-    # Using np.squeeze to remove single dimensions like (lat, lon)
-    squeezed_vals = np.squeeze(vals)
-    print(f"{long_name} ({var_name}): {squeezed_vals} {units}")
+    units = first_ds[var_name].attrs.get('units', '')
+    long_name = first_ds[var_name].attrs.get('long_name', var_name)
+    print(f"\n{long_name} ({var_name}) [{units}]:")
+    
+    for fname, ds in datasets.items():
+        if var_name in ds:
+            vals = np.squeeze(ds[var_name].values)
+            print(f"  {fname}: {vals}")
+        else:
+            print(f"  {fname}: Variable not found")
 
 # %%
 # ---------------------------------------------------------
 # Calculate Physical Height (km) using Hydrostatic Equation
 # ---------------------------------------------------------
-# Variables needed: T, q, lev (pressure in Pa), Ps (surface pressure in Pa), phis (surface geopotential)
-# We calculate height for each time step.
-# z_surf = phis / g
-# dz = R_d * Tv / g * d(ln p)
 g = 9.80665
 R_d = 287.05
 epsilon = 0.622
 
-# lev is mid-point pressure in Pa
-p = ds['lev'].values
+# Dictionary to store height for each file and time step
+# z_km_dict[fname][t_idx]
+z_km_dict = {fname: {} for fname in datasets.keys()}
 
-# Check if pressure levels are ordered top-to-bottom or bottom-to-top
-top_to_bottom = p[0] < p[-1]
-
-# We will calculate Z for each time step and store it in a dictionary
-z_km_dict = {}
-
-for t_idx in range(len(times)):
-    T_prof = ds['T'].isel(time=t_idx, lat=0, lon=0).values
-    
-    # If moisture q exists, use it for virtual temperature, otherwise Tv = T
-    if 'q' in ds.variables:
-        q_prof = ds['q'].isel(time=t_idx, lat=0, lon=0).values
-        Tv = T_prof * (1 + (1/epsilon - 1) * q_prof)
-    else:
-        Tv = T_prof
+for fname, ds in datasets.items():
+    for t_idx in range(len(times)):
+        T_prof = ds['T'].isel(time=t_idx, lat=0, lon=0).values
         
-    Ps = ds['Ps'].isel(time=t_idx, lat=0, lon=0).values
-    phis = ds['phis'].isel(time=t_idx, lat=0, lon=0).values
-    
-    z_surf = phis / g
-    
-    z = np.zeros_like(p)
-    
-    # Integrate hydrostatic equation
-    if top_to_bottom:
-        # Calculate lowest level height from surface pressure
-        z[-1] = z_surf + R_d * Tv[-1] / g * np.log(Ps / p[-1])
-        # Integrate upward (backwards in array)
-        for i in range(len(p)-2, -1, -1):
-            z[i] = z[i+1] + R_d * 0.5 * (Tv[i] + Tv[i+1]) / g * np.log(p[i+1] / p[i])
-    else:
-        # Calculate lowest level height from surface pressure
-        z[0] = z_surf + R_d * Tv[0] / g * np.log(Ps / p[0])
-        # Integrate upward (forwards in array)
-        for i in range(1, len(p)):
-            z[i] = z[i-1] + R_d * 0.5 * (Tv[i] + Tv[i-1]) / g * np.log(p[i-1] / p[i])
+        # If moisture q exists, use it for virtual temperature, otherwise Tv = T
+        if 'q' in ds.variables:
+            q_prof = ds['q'].isel(time=t_idx, lat=0, lon=0).values
+            Tv = T_prof * (1 + (1/epsilon - 1) * q_prof)
+        else:
+            Tv = T_prof
             
-    z_km_dict[t_idx] = z / 1000.0  # Convert to km
+        Ps = ds['Ps'].isel(time=t_idx, lat=0, lon=0).values
+        phis = ds['phis'].isel(time=t_idx, lat=0, lon=0).values
+        
+        z_surf = phis / g
+        
+        z = np.zeros_like(p)
+        
+        # Integrate hydrostatic equation
+        if top_to_bottom:
+            # Calculate lowest level height from surface pressure
+            z[-1] = z_surf + R_d * Tv[-1] / g * np.log(Ps / p[-1])
+            # Integrate upward (backwards in array)
+            for i in range(len(p)-2, -1, -1):
+                z[i] = z[i+1] + R_d * 0.5 * (Tv[i] + Tv[i+1]) / g * np.log(p[i+1] / p[i])
+        else:
+            # Calculate lowest level height from surface pressure
+            z[0] = z_surf + R_d * Tv[0] / g * np.log(Ps / p[0])
+            # Integrate upward (forwards in array)
+            for i in range(1, len(p)):
+                z[i] = z[i-1] + R_d * 0.5 * (Tv[i] + Tv[i-1]) / g * np.log(p[i-1] / p[i])
+                
+        z_km_dict[fname][t_idx] = z / 1000.0  # Convert to km
 
-print("\nPhysical heights calculated successfully.")
+print("\nPhysical heights calculated successfully for all files.")
 
 # %%
 # ---------------------------------------------------------
@@ -125,30 +135,54 @@ print("\nPhysical heights calculated successfully.")
 # ---------------------------------------------------------
 print("\n--- Plotting Multi-Level Variables ---")
 
+# Define some markers and linestyles to distinguish files and time indices
+markers = ['o', 's', '^', 'D', 'v', '<', '>']
+#linestyles = ['-', '--', '-', '--']
+colors = ['red','blue']
+
 for var_name in multi_level_vars:
-    var_data = ds[var_name].isel(lat=0, lon=0)
-    units = ds[var_name].attrs.get('units', '')
-    long_name = ds[var_name].attrs.get('long_name', var_name)
+    units = first_ds[var_name].attrs.get('units', '')
+    long_name = first_ds[var_name].attrs.get('long_name', var_name)
     
-    fig, ax = plt.subplots(figsize=(6, 8))
+    fig, ax = plt.subplots(figsize=(8, 10))
     
-    for t_idx in range(len(times)):
-        x_vals = var_data.isel(time=t_idx).values
-        y_vals = z_km_dict[t_idx]
-        
-        ax.plot(x_vals, y_vals, label=f"Time index {t_idx}", marker='.', markersize=4, linestyle='-')
-        
+    for f_idx, (fname, ds) in enumerate(datasets.items()):
+        if var_name not in ds:
+            continue
+            
+        var_data = ds[var_name].isel(lat=0, lon=0)
+        marker = markers[f_idx]
+        icolor = colors[f_idx]
+        for t_idx in range(len(times)):
+            if(t_idx == 0):
+                ls = '-'
+            else:
+                ls = '--'
+
+            #ls = linestyles[t_idx % len(linestyles)]
+
+            x_vals = var_data.isel(time=t_idx).values
+            y_vals = z_km_dict[fname][t_idx]
+            
+            
+            
+            label_name = f"{fname.replace('.nc', '')} (t={t_idx})"
+            
+            ax.plot(x_vals, y_vals, label=label_name, linestyle=ls, 
+            linewidth=1.5, color=icolor) #marker=marker, markersize=3, 
+            
     ax.set_ylabel("Height above sea level (km)")
     ax.set_xlabel(f"{long_name} [{units}]")
     ax.set_title(f"{var_name}: {long_name}")
-    ax.legend()
+    
+    # Place legend outside or adjust font size if there are many files
+    ax.legend(fontsize=8, loc='best')
     ax.grid(True, linestyle='--', alpha=0.7)
     
     plt.tight_layout()
     plt.show()
 
 # %%
-# Close the dataset
-ds.close()
-
-# %%
+# Close datasets
+for ds in datasets.values():
+    ds.close()

@@ -32,15 +32,15 @@ import matplotlib.pyplot as plt
 # ---------------------------------------------------------------------------
 
 icase = "RCE09_dx3km_gpu"
-varname = "nc_m3_level_79"
+varname = "nc_m3_level_97"
 stats_type = "INSTANT"
 frequency = "nhours_x1"
 
 in_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw"
 
 # Date range to load (inclusive, YYYY-MM-DD)
-ts_start = "2000-02-01"
-ts_end   = "2000-02-01"
+ts_start = "2000-03-01"
+ts_end   = "2000-03-01"
 
 stat_type = "raw" # options: "min", "max", "mean", "raw"; 
 #"raw"" requires to plot an instant value for the specified time
@@ -137,17 +137,24 @@ else:
 units = data.attrs.get("units", "")
 unit_str = f" [{units}]" if units else ""
 
+
+# %%
+#plot setting
+marker_size = 4
+if stat_type == "raw":
+    marker_size = 15
+
 # %%
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
 print("Generating plot...")
-savefig = True
+savefig = False
 
 fig = plt.figure(figsize=(12, 6))
 
 # Use scatter plot since ncol is unstructured and points aren't logically connected as a line
-plt.scatter(ncol_values, stat_data.values, s=4, alpha=0.6, color='b', marker='o')
+plt.scatter(ncol_values, stat_data.values, s=marker_size, alpha=0.6, color='b', marker='o')
 
 plt.xlabel('Model Grid Column (ncol)', fontsize=12)
 plt.ylabel(f"{varname} ({stat_type} over time){unit_str}", fontsize=12)
