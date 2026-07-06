@@ -24,7 +24,7 @@ import h5py
 # CONFIGURATION
 # =============================================================================
 
-icase   = "RCE03_150x150_1km"
+icase   = "RCE00_dx1km_600x600km"
 
 in_dir  = (
     f"/pscratch/sd/w/wcmca1/PINACLES/rce/"
@@ -38,7 +38,13 @@ out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw"
 # cp_base, cp_depth, cp_intensity, surface_lw_down, surface_lw_up,
 # surface_sw_down, surface_sw_up, toa_lw_down, toa_lw_up, toa_sw_down,
 # toa_sw_up, visibility, and height-level fields (e.g., T_100.0, qv_500.0, ...)
-varname = "toa_lw_up"
+#varname = "qni1_9900.0_m3"
+varname = "rain_rate" #"LW_UP_TOA" 
+
+# File minute pattern for specifying frequency.
+# Use "00m" for hourly data (only read files on the hour).
+# Use "*m" to read all available frequencies (e.g., every 10 minutes).
+minute_pattern = "00m"
 
 # Day range to process (inclusive, 0-based integer day numbers matching the
 # leading digits in filenames, e.g. 00d-HHh-... → day 0).
@@ -68,20 +74,44 @@ print(f"Input dir : {in_dir}")
 print(f"Output dir: {out_dir}")
 print(f"Day range : {day_start} – {day_end}")
 
+# Determine if unit conversion is needed
+is_m3_conversion = False
+invarname = varname
+z_level_str = ""
+if varname == "rain_rate":
+    invarname = "RAINNC"
+elif varname.endswith('_m3') and (varname.startswith('qnc_') or varname.startswith('qni1_')):
+    is_m3_conversion = True
+    invarname = varname[:-3]
+    if varname.startswith('qnc_'):
+        z_level_str = invarname[4:]
+    elif varname.startswith('qni1_'):
+        z_level_str = invarname[5:]
+
 # Read X and Y coordinates once from the first available file
 all_files = sorted(glob.glob(os.path.join(in_dir, "*.h5")))
 if not all_files:
     raise FileNotFoundError(f"No .h5 files found in {in_dir}")
 
 with h5py.File(all_files[0], 'r') as f0:
-    if varname not in f0:
-        raise KeyError(
-            f"Variable '{varname}' not found in {all_files[0]}. "
-            f"Available keys: {list(f0.keys())}"
-        )
+    if invarname not in f0:
+        if varname == "toa_lw_up" and "LW_UP_TOA" in f0:
+            invarname = "LW_UP_TOA"
+            print("Variable 'toa_lw_up' not found in input. Reading 'LW_UP_TOA' instead.")
+        else:
+            raise KeyError(
+                f"Variable '{invarname}' not found in {all_files[0]}. "
+                f"Available keys: {list(f0.keys())}"
+            )
     x_vals   = f0['X'][...]          # shape (nx,)
     y_vals   = f0['Y'][...]          # shape (ny,)
-    var_attrs = dict(f0[varname].attrs)
+    var_attrs = dict(f0[invarname].attrs)
+
+if is_m3_conversion:
+    var_attrs['units'] = '1/m3'
+if varname == "rain_rate":
+    var_attrs['units'] = 'mm/h'
+    var_attrs['long_name'] = 'hourly precipitation rate'
 
 # Remove HDF5-internal attributes that do not transfer cleanly to NetCDF
 for _key in ('DIMENSION_LIST', 'CLASS', 'NAME', 'REFERENCE_LIST'):
@@ -93,11 +123,17 @@ for _key in ('DIMENSION_LIST', 'CLASS', 'NAME', 'REFERENCE_LIST'):
 # ---------------------------------------------------------------------------
 # Main loop: one output file per simulation day
 # ---------------------------------------------------------------------------
+# Create a list of all matching files to find previous files for rate calculations
+all_matching_pattern = os.path.join(in_dir, f"*-*-{minute_pattern}-*.h5")
+all_matching_files = sorted(glob.glob(all_matching_pattern))
+
+prev_file_cache = {"fpath": None, "t": None, "v": None}
+
 for iday in range(day_start, day_end + 1):
-    day_files = sorted(glob.glob(os.path.join(in_dir, f"{iday:02d}d-*.h5")))
+    day_files = sorted(glob.glob(os.path.join(in_dir, f"{iday:02d}d-*-{minute_pattern}-*.h5")))
 
     print(f"\n{'='*55}")
-    print(f"Day {iday:02d}: found {len(day_files)} hourly file(s)")
+    print(f"Day {iday:02d}: found {len(day_files)} file(s)")
 
     if not day_files:
         print(f"  No files found for day {iday:02d}, skipping.")
@@ -110,7 +146,40 @@ for iday in range(day_start, day_end + 1):
         hour = parse_hour(fpath)
         with h5py.File(fpath, 'r') as hf:
             t = hf['time'][...]      # shape (1,)  — seconds since sim start
-            v = hf[varname][...]     # shape (1, ny, nx)
+            
+            if varname == "rain_rate":
+                v_current = hf[invarname][...]
+                
+                idx = all_matching_files.index(fpath)
+                if idx == 0:
+                    v = np.zeros_like(v_current)
+                else:
+                    prev_fpath = all_matching_files[idx - 1]
+                    if prev_file_cache["fpath"] == prev_fpath:
+                        prev_t = prev_file_cache["t"]
+                        prev_v = prev_file_cache["v"]
+                    else:
+                        with h5py.File(prev_fpath, 'r') as hf_prev:
+                            prev_t = hf_prev['time'][...]
+                            prev_v = hf_prev[invarname][...]
+                    
+                    dt_hours = (t[0] - prev_t[0]) / 3600.0
+                    if dt_hours > 0:
+                        v = (v_current - prev_v) / dt_hours
+                    else:
+                        v = np.zeros_like(v_current)
+                        
+                prev_file_cache["fpath"] = fpath
+                prev_file_cache["t"] = t
+                prev_file_cache["v"] = v_current
+            else:
+                v = hf[invarname][...]     # shape (1, ny, nx)
+            
+            if is_m3_conversion:
+                T_field = hf[f'T_{z_level_str}'][...]
+                p_field = hf[f'p_hydrostatic_{z_level_str}'][...]
+                rho = p_field / (287.042 * T_field)
+                v = v * rho
         time_list.append(float(t[0]))
         var_list.append(v[0, ...])   # shape (ny, nx)
         #print(f"  Hour {hour:02d}: time={t[0]:.0f} s, {varname} shape={v.shape}")
@@ -163,6 +232,7 @@ for iday in range(day_start, day_end + 1):
     ds.to_netcdf(
         out_file, 
         mode='w', 
+        unlimited_dims=['time'],
         encoding={
             'time': {'_FillValue': None},
             'x': {'_FillValue': None},

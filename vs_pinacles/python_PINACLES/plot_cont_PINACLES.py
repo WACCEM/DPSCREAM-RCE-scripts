@@ -48,6 +48,8 @@ init_style()
 
 from dp_scream_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
 
+# %%
+#local functions
 _ffmpeg = _find_working_ffmpeg()
 if _ffmpeg:
     matplotlib.rcParams["animation.ffmpeg_path"] = _ffmpeg

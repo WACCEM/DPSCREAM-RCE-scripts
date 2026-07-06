@@ -13,17 +13,20 @@ Usage:
   python horiz_avg_PINACLES.py
 """
 
+# %%
+
 import os
 import glob
 import re
 import numpy as np
 import xarray as xr
 import h5py
+# %%
 
 # =============================================================================
 # User configuration
 # =============================================================================
-icase   = "RCE03_150x150_1km"
+icase   = "RCE01_dx1km_600x600km"
 
 # Variable to process. 
 # Available 2D variables include: imse, LWP, IWP, RAINNC, RAINNCV, T2, qv2,
@@ -31,15 +34,22 @@ icase   = "RCE03_150x150_1km"
 # cp_base, cp_depth, cp_intensity, surface_lw_down, surface_lw_up,
 # surface_sw_down, surface_sw_up, toa_lw_down, toa_lw_up, toa_sw_down,
 # toa_sw_up, visibility, and height-level fields (e.g., T_100.0, qv_500.0, ...)
-varname = "VWP"
+varname = "imse"
 
 in_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/simlinks/fields2d"
 out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/havg"
 
+# File minute pattern for specifying frequency.
+# Use "00m" for hourly data (only read files on the hour).
+# Use "*m" to read all available frequencies (e.g., every 10 minutes).
+minute_pattern = "00m"
+
 # Day range to process (inclusive, 0-based integer day numbers matching the
 # leading digits in filenames, e.g. 00d-HHh-... → day 0).
 day_start = 0
-day_end   = 60   # adjust to the last available simulation day
+day_end   = 43   # adjust to the last available simulation day
+
+# %%
 
 # =============================================================================
 # End user configuration
@@ -50,6 +60,9 @@ def parse_hour(filename):
     m = re.match(r'^\d+d-(\d+)h-', os.path.basename(filename))
     return int(m.group(1)) if m else None
 
+
+# %%
+
 os.makedirs(out_dir, exist_ok=True)
 
 print(f"\n{'='*60}")
@@ -58,7 +71,7 @@ print(f"Input dir : {in_dir}")
 print(f"Output dir: {out_dir}")
 print(f"Day range : {day_start} – {day_end}")
 
-all_files = sorted(glob.glob(os.path.join(in_dir, "*.h5")))
+all_files = sorted(glob.glob(os.path.join(in_dir, f"*-{minute_pattern}-*.h5")))
 if not all_files:
     raise FileNotFoundError(f"No .h5 files found in {in_dir}")
 
@@ -77,14 +90,23 @@ print(f"\nFound {len(infiles)} input file(s) in day range.")
 if not infiles:
     raise ValueError("No files found within the specified day range.")
 
+
+# %%
+
+invarname = varname
+
 # Read attributes from the first file
 with h5py.File(infiles[0], 'r') as f0:
-    if varname not in f0:
-        raise KeyError(
-            f"Variable '{varname}' not found in {infiles[0]}. "
-            f"Available keys: {list(f0.keys())}"
-        )
-    var_attrs = dict(f0[varname].attrs)
+    if invarname not in f0:
+        if varname == "toa_lw_up" and "LW_UP_TOA" in f0:
+            invarname = "LW_UP_TOA"
+            print("Variable 'toa_lw_up' not found in input. Reading 'LW_UP_TOA' instead.")
+        else:
+            raise KeyError(
+                f"Variable '{invarname}' not found in {infiles[0]}. "
+                f"Available keys: {list(f0.keys())}"
+            )
+    var_attrs = dict(f0[invarname].attrs)
 
 # Remove HDF5-internal attributes that do not transfer cleanly to NetCDF
 for _key in ('DIMENSION_LIST', 'CLASS', 'NAME', 'REFERENCE_LIST'):
@@ -101,7 +123,7 @@ for i, fpath in enumerate(infiles):
         
     with h5py.File(fpath, 'r') as hf:
         t = hf['time'][...]      # shape (1,)  — seconds since sim start
-        v = hf[varname][...]     # shape (1, ny, nx) or (ny, nx) depending on field
+        v = hf[invarname][...]     # shape (1, ny, nx) or (ny, nx) depending on field
         
         # Squeeze the time dimension if it exists
         if v.ndim == 3 and v.shape[0] == 1:
@@ -169,3 +191,5 @@ print(f"  Saved domain-average: {havg_out}")
 
 print(f"\n{'='*60}")
 print("Done.")
+
+# %%
