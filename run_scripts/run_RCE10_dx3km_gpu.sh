@@ -2,7 +2,6 @@
 set -e
 #need to load the Python module, specifically cray-python module, before running this script to ensure the correct version of Python is used for the xmlchange and atmchange scripts.  If you do not have the correct version of Python loaded, you may encounter errors when running those scripts.
 # module load cray-python/3.11.7
-
 #######################################################################
 #######################################################################
 #######  Script to run SCREAMv1 in doubly periodic (DP) mode (DP-EAMxx)
@@ -29,7 +28,7 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=RCE02_dx1km_gpu
+export casename=RCE10_dx3km_gpu
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
@@ -62,13 +61,13 @@ export yamlpath=/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/run_scripts/yaml_files
 # - Some cases are small enough to run on debug queues
 # - Setting to true only supported for NERSC and Livermore Computing,
 #   else user will need to modify script to submit to debug queue
-export debug_queue=false
+export debug_queue=true
 
 # Set number of processors to use, should be less than or equal
 #   to the total number of elements in your domain.  Note that if you are running
 #   on pm-gpu you will want to set this to either "4" or "8" if running the standard
 #   domain size and resolution (RCE excluded).
-num_procs=64
+num_procs=16
 # based on the table "supported PECOUNTS", the value for ne30pg2_ne30pg2
 #https://e3sm.atlassian.net/wiki/spaces/DOC/pages/3386015745/How+To+Run+EAMxx+SCREAMv1
 
@@ -76,7 +75,7 @@ stop_option=ndays
 stop_n=5
 
 # set walltime
-walltime='03:30:00'
+walltime='00:30:00'
 
 ## SET DOMAIN SIZE AND DYNAMICS RESOLUTION:
 # - Note that these scripts are set to run with dx=dy=3.33 km
@@ -87,8 +86,8 @@ walltime='03:30:00'
 # (there are 3x3 unique dynamics columns per element, hence the "3" factor)
 
 # Set number of elements in the x&y directions
-num_ne_x=200
-num_ne_y=200
+num_ne_x=60
+num_ne_y=60
 
 # Set domain length [m] in x&y direction
 domain_size_x=600000
@@ -106,12 +105,12 @@ domain_size_y=600000
 # model/physics time step [s]:
 #  As a rule, a factor of 2 increase in resolution should equate to a factor of 2
 #  decrease of the model/physics step.  This needs to be an integer number.
-model_dtime=30
+model_dtime=100
 
 # dynamics time step [s]:
 #  should divide evenly into model_dtime.  As a general rule of thumb, divide
 #   model_dtime by 12 to get your dynamics time step.
-dyn_dtime=2.5
+dyn_dtime=8.3333333333333
 
 # SET SECOND ORDER VISCOSITY NEAR MODEL TOP
 #  NOTE that if you decrease resolution you will also need to reduce
@@ -120,11 +119,11 @@ dyn_dtime=2.5
 #  factor of 2 decrease for this value
 
 # second order visocosity near model top [m2/s]
-nu_top_dyn=3000.0
+nu_top_dyn=1e4
 
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
-#-switch to run/not to run CESM scripts  -----------------------------------
+#-switches to run/not to run CESM scripts  -----------------------------------
 run_setup=false        #case.setup 
 clean_setup=false
 
@@ -132,13 +131,13 @@ clean_setup=false
 run_build=false       #./case.build
 clean_build=false
 
-edit_output=true
+edit_output=false
 #./atmchange to edit output options (e.g., compute tendencies for output, add yaml output files, etc)
 
 edit_build=false
 edit_domain=false
 edit_jobconf=false
-edit_atmconf=true
+edit_atmconf=false
 
 do_continue_run=FALSE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
@@ -165,33 +164,28 @@ run_job=true
 
 
   sst_val=300 # set constant SST value (ONLY valid for RCE case)
-  #IPO file name as the IC
-  iop_file="RCE09_dx3km_gpu_equilibrium_300K_profile.nc"
-  # Location of IOP file
-  iop_path="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input"
-
+  iop_file=RCE_300K_iopfile_4scam.nc #IOP file name
   do_turnoff_swrad=false # Turn off SW calculation (if false, keep false)
 
 # End Case specific stuff here
 
+  # Location of IOP file
+  iop_path=atm/cam/scam/iop
 
   PROJECT=$projectname
   E3SMROOT=${code_dir}/${code_tag}
   echo "E3SM root: $E3SMROOT"
 
   # Verify the required branch is checked out before proceeding
-  current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
-  echo "Confirmed E3SM branch: ${current_branch}"
-
-  required_branch="ksa/nersc" #includes more strict compliance to RCEMIP
-  if [[ "${current_branch}" != "${required_branch}" ]]; then
-      echo "ERROR: E3SM source code is on branch '${current_branch}'," \
-           "but '${required_branch}' is required."
-      echo "       Run: git -C ${E3SMROOT} checkout ${required_branch}"
-      exit 1
-  else
-      echo "current branch matches the required branch"
-  fi
+#   required_branch="8426cb31c7_clone"
+#   current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
+#   if [[ "${current_branch}" != "${required_branch}" ]]; then
+#       echo "ERROR: E3SM source code is on branch '${current_branch}'," \
+#            "but '${required_branch}' is required."
+#       echo "       Run: git -C ${E3SMROOT} checkout ${required_branch}"
+#       exit 1
+#   fi
+#  echo "Confirmed E3SM branch: ${current_branch}"
 
   compset=FRCE-SCREAMv1-DP
 
@@ -230,6 +224,21 @@ if [[ $edit_build == 'true' ]]; then
   ./xmlchange --id RUNDIR --val "${case_run_dir}"
   ./xmlchange --id DEBUG --val FALSE
 
+   #RCE=specific build operations
+   tgtfile_name="physics_constants.hpp"
+   echo "using modified ${tgtfile_name} to change NCCNST = 1.0e8 for no-aerosol configuration"
+   # NCCNST is a compile-time constant in physics_constants.hpp (200e6 m^-3); it is NOT a runtime parameter accessible via atmchange in this code version. To change it, modify physics_constants.hpp and recompile.
+  #  orgfile=${E3SMROOT}/components/eamxx/src/physics/share/${tgtfile_name}
+  #  if [[ ! -f ${orgfile}.backup ]]; then
+  #    cp ${orgfile} ${orgfile}.backup
+  #  fi
+  #  copyfile=${case_scripts_dir}/SourceMods/src.scream/${tgtfile_name}
+  #  cp ${orgfile} ${copyfile}
+  #  sed -i 's/static constexpr Scalar NCCNST        = 200\.0e+6;/static constexpr Scalar NCCNST        = 1.0e8;/' ${copyfile}
+  # eamxx does not support the SourceMods/src.scream system to include source code change. The change has been applied to the source code file
+  # eamxx/src/physics/share/physics_constants.hpp
+
+
 fi
 
 # Set queue to debug, only on certain machines
@@ -254,16 +263,16 @@ if [[ $edit_jobconf == 'true' ]]; then
     ./xmlchange  NTASKS_$component=$npes,NTHRDS_$component=1,ROOTPE_$component=0
   done
 
-  # Compute maximum allowable number for processes (number of elements)
-  dyn_pes_nxny=$((num_ne_x * num_ne_y)) #not used (?) KSA
+# Compute maximum allowable number for processes (number of elements)
+    dyn_pes_nxny=$((num_ne_x * num_ne_y)) #not used (?) KSA
 fi
 
 
 if [[ $edit_domain == 'true' ]]; then
-  # Compute number of columns needed for component model initialization
+# Compute number of columns needed for component model initialization
   comp_mods_nx=$((num_ne_x * num_ne_y * 4))
 
-  # Modify the latitude and longitude for the particular case
+# Modify the latitude and longitude for the particular case
   ./xmlchange PTS_MULTCOLS_MODE="TRUE",PTS_MODE="TRUE",PTS_LAT="$lat",PTS_LON="$lon"
   ./xmlchange MASK_GRID="USGS",PTS_NX="${comp_mods_nx}",PTS_NY=1
   ./xmlchange ICE_NX="${comp_mods_nx}",ICE_NY=1
@@ -274,7 +283,12 @@ fi
 
 # Modify the run start and duration parameters for the desired case
 #always edit
-./xmlchange RUN_STARTDATE="$startdate"
+
+# ./xmlchange RUN_TYPE="branch"
+
+# ./xmlchange RUN_REFCASE="$refcase"
+
+# ./xmlchange RUN_REFDATE="$refdate"
 
 ./xmlchange RUN_STARTDATE="$startdate"
 
@@ -296,7 +310,7 @@ fi
 
 
 # Get local input data directory path
-  input_data_dir=$(./xmlquery DIN_LOC_ROOT -value)
+  input_data_dir=$(./xmlquery DIN_LOC_ROOT --value | tail -1)
 
 # Run case.setup if explicitly requested (run_setup=true), or if env_mach_specific.xml
 # is missing (e.g. after a previous case.setup --clean left no xml for xmlchange to read).
@@ -320,7 +334,7 @@ if [ "$edit_atmconf" = true ]; then
   ./atmchange cubed_sphere_map=2
   ./atmchange target_latitude=$lat
   ./atmchange target_longitude=$lon
-  ./atmchange iop_file=$iop_path/$iop_file
+  ./atmchange iop_file=$input_data_dir/$iop_path/$iop_file
   ./atmchange nu=0.216784
   ./atmchange nu_top=$nu_top_dyn
   ./atmchange se_ftype=2
@@ -333,7 +347,18 @@ if [ "$edit_atmconf" = true ]; then
   ./atmchange iop_nudge_uv=$do_iop_nudge_uv
   ./atmchange iop_nudge_tq=$do_iop_nudge_tq
 
-  #Ozone profile from RCEMIP
+  #test the impact of revised solar irradiance in the v3.1.0 alpha from v3.0.2 release, which 
+  #used tsi_default in rrtmgp-data-sw-g112-210809.nc = 1360.858 W/m², while v3.1.0 alha release uses
+  #551.58 for RCE
+  #-9999 goes back to the default value in the rrtmgp data file, which should be ~1360.858 W/m² 
+  #./atmchange rrtmgp::fixed_total_solar_irradiance=-9999.0
+
+  # Explicitly set files that the nlev selector in namelist_defaults_eamxx.xml
+  # should auto-set but fails to, because xmlquery prints a Python version
+  # warning to stdout which gets prepended to SCREAM_CMAKE_OPTIONS; the
+  # buildnml selector uses re.match() (not re.search()), so the newline
+  # prevents it from finding SCREAM_NUM_VERTICAL_LEV on the second line.
+  ./atmchange vertical_coordinate_filename=$input_data_dir/atm/scream/init/vertical_coordinates_L128_20220927.nc
   ./atmchange initial_conditions::filename=/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/O3_RCEMIP.nc
 
   # noAero configuration: mirrors the SCREAM.*noAero compsets for RCEMIP aerosol compliance.
@@ -366,12 +391,13 @@ if [ "$edit_output" = true ]; then
     #./atmchange physics::iop_forcing::compute_tendencies=T_mid,qv  #comment out due to an error
     # ERROR: physics::iop_forcing::compute_tendencies did not match any items
   
-    # configure yaml output
-    # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
-    # Note that you can have as many output streams (yaml files) as you want!
+ # configure yaml output
+ # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
+ # Note that you can have as many output streams (yaml files) as you want!
 
     yamlfile1=scream_test9_output_avg_1hour.yaml
     yamlfile2=scream_test9_output_inst_1hour.yaml
+    #yamlfile2=scream_horiz_avg_output_5min.yaml
 
     # ./atmchange output_yaml_files="./scream_horiz_avg_output_5min.yaml"
     # ./atmchange output_yaml_files+="./scream_output_avg_5min.yaml"

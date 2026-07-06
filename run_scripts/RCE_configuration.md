@@ -28,6 +28,32 @@ Script: `run_cpu_dpxx_scream_RCE_dx1km.sh`
 | Timesteps for a 12 h segment | 1,440 physics (100 s), 17,280 dynamics (8.33 s) |
 | Vertical levels | 128 |
 
+### Vertical level mapping (128 levels)
+
+The 128 vertical levels are ordered from top (index 0, top of the atmosphere) to bottom (index 127, near surface). The tables below map the model level indices to common physical heights and pressure levels (based on domain-average, time-average profiles from `RCE02_dx3km_gpu`).
+
+#### Common physical heights
+| Target Height | Nearest Index | Actual Height | Actual Pressure |
+|---|---|---|---|
+| 100 m | 124 | 112.3 m | 1003.1 hPa |
+| 500 m | 114 | 512.0 m | 958.5 hPa |
+| 1000 m | 105 | 989.6 m | 902.4 hPa |
+| 1500 m | 97 | 1536.1 m | 845.4 hPa |
+| 3000 m | 88 | 2902.4 m | 716.9 hPa |
+| 5000 m | 79 | 5129.8 m | 541.3 hPa |
+| 10000 m | 61 | 10057.9 m | 270.9 hPa |
+
+#### Common pressure levels
+| Target Pressure | Nearest Index | Actual Pressure | Actual Height |
+|---|---|---|---|
+| 1000 hPa | 123 | 999.6 hPa | 146.7 m |
+| 925 hPa | 109 | 926.7 hPa | 764.9 m |
+| 850 hPa | 97 | 845.4 hPa | 1536.1 m |
+| 700 hPa | 87 | 697.8 hPa | 3132.3 m |
+| 500 hPa | 77 | 501.5 hPa | 5753.5 m |
+| 200 hPa | 53 | 199.6 hPa | 12032.4 m |
+| 100 hPa | 35 | 100.0 hPa | 15980.0 m |
+
 
 ## Perlmutter CPU hardware constraint
 
@@ -963,15 +989,21 @@ creation and provides the orbital and surface boundary conditions.
 
 | Parameter | RCEMIP specification | EAMxx (RCE case) |
 |---|---|---|
-| O3 profile (g1, g2, g3) | Analytic formula $O_3(p) = g_1\, p^{g_2}\, e^{-p/g_3}$ with g1 = 3.6478 ppmv hPa⁻ᵍ², g2 = 0.83209, g3 = 11.3515 hPa | **Not implemented.** Ozone is read from the global IC file `screami_ne30np4L128_20221004.nc` (2010 F2010 climatology) and held fixed throughout the run. |
+| O3 profile (g1, g2, g3) | Analytic formula $O_3(p) = g_1\, p^{g_2}\, e^{-p/g_3}$ with g1 = 3.6478 ppmv hPa⁻ᵍ², g2 = 0.83209, g3 = 11.3515 hPa | **Implemented.** Ozone is now read from a custom IC file `O3_RCEMIP.nc` which contains the analytical profile. |
 
 The RCEMIP analytic ozone profile parameters (g1, g2, g3) do not appear anywhere in the EAMxx
-codebase. The `o3_volume_mix_ratio` field is initialized from the standard ne30np4 global IC file
-at the nearest equatorial column (lat ≈ 0°, lon ≈ 0°) and is not modified during the simulation.
-This profile differs from the RCEMIP prescription, which specifies a smooth analytical function
-of pressure designed to represent a tropical mean ozone climatology. The two profiles may agree
-well in the lower-to-mid troposphere but can differ in the stratosphere, which affects longwave
-cooling near the model top.
+codebase natively. To comply with the RCEMIP protocol, a custom initial condition file (`O3_RCEMIP.nc`) was generated.
+
+A Python script, [`create_RCEMIP_O3.py`](file:///global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM/create_RCEMIP_O3.py), was written to:
+1. Make a copy of the default global IC file (`screami_ne30np4L128_20221004.nc`).
+2. Calculate the exact pressure at each grid point using the hybrid coordinate formula ($p = hyam \times P_0 + hybm \times ps$).
+3. Apply the RCEMIP analytical formula $O_3(p) = g_1 p^{g_2} e^{-p/g_3}$ to calculate the `o3_volume_mix_ratio`.
+4. Overwrite the `o3_volume_mix_ratio` variable in the copied file to create the new `O3_RCEMIP.nc`.
+
+The run scripts (e.g., `run_RCE10_dx3km_gpu.sh`) have been updated to point `initial_conditions::filename` to this new custom file. As verified in the source code (`IOPDataManager.cpp`), the IOP forcing mechanism does not overwrite ozone variables (`o3_volume_mix_ratio`), meaning the model will correctly initialize and retain the RCEMIP analytical ozone profile for radiative transfer calculations.
+
+For reference, the comparison between the original climatology ozone profile and the new RCEMIP analytical profile can be found here:
+![O3 Profile Comparison](/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM/O3_profile_comparison.png)
 
 ---
 
@@ -1559,3 +1591,21 @@ output_control:
 
 * **Effect on INSTANT:** The output manager waits until `01:00` to open its very first file. It creates the file at exactly `03600` seconds, permanently adopting `03600.nc` as its filename suffix for both the initial run and all subsequent restarts. Each file will cleanly hold exactly 24 snapshots.
 * **Effect on AVERAGE:** You do not need to add this flag to average YAML files. Average streams never output a `t=0` snapshot to begin with, which is why they naturally avoid this issue.
+
+### Notes on output variables
+
+**Equivalent Radar Reflectivity (`diag_equiv_reflectivity`)**
+
+Equivalent radar reflectivity (often denoted as $Z_e$) is a standard meteorological metric used to quantify the intensity of radar echoes returned by hydrometeors (such as rain, snow, graupel, or hail). 
+
+Actual radar reflectivity ($Z$) depends on the size, state, number, and shape of the particles. Because radar signals reflect differently off of ice than they do off of liquid water (due to differing dielectric constants), meteorologists define an **"equivalent"** reflectivity. This is the reflectivity that a theoretical volume of *pure, spherical liquid water drops* would need to have in order to produce the same amount of backscattered microwave energy as the actual, real-world mixture of particles in the cloud. It standardizes the radar return signal so that everything can be compared on a single scale.
+
+**Why are the units `1`?**
+In its linear physical form, radar reflectivity is measured in $mm^6/m^3$. However, because reflectivity values span many orders of magnitude (from tiny drizzle drops to massive hailstones), it is almost always converted into a base-10 logarithmic scale called **dBZ** (decibels of $Z$). 
+
+The conversion formula is:
+$dBZ = 10 \cdot \log_{10} \left( \frac{Z_e}{1 \text{ mm}^6/\text{m}^3} \right)$
+
+Since you are taking the ratio of two quantities that have the exact same physical units ($mm^6/m^3$ divided by a reference $1 \text{ mm}^6/\text{m}^3$), the resulting $dBZ$ value is a **dimensionless ratio**. 
+
+In the NetCDF/CF metadata conventions used by Earth system models like E3SM/SCREAM, the standard string for any dimensionless variable (such as fractions, pure ratios, or logarithmic scales like decibels) is simply `"1"`. So, the unit `1` here means that the model is outputting dimensionless dBZ values, rather than the raw $mm^6/m^3$ linear values.
