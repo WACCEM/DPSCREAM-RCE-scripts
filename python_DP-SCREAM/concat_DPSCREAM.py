@@ -50,7 +50,7 @@ in_dir    = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run"
 #in_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/run"
 out_dir    = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw"
 
-varname    = "precip_total_surf_mass_flux"
+varname    = "LW_flux_up_at_model_top" #"precip_total_surf_mass_flux"
 zlev = None
 #zlev = 97
 # File naming parameters
@@ -368,7 +368,17 @@ for idct in range(ndays):
     # Encode time as float64 (double) instead of xarray's default int64 so that
     # ncview and other tools that don't recognise NC_INT64 (type 10) can read it.
     # _FillValue=None suppresses the unwanted _FillValue attribute on the time coordinate.
-    ds_today_extended.to_netcdf(out_path, encoding={'time': {'dtype': 'float64', '_FillValue': None}})
+    # Enforce continuous time variable across all output files.
+    ds_today_extended.to_netcdf(
+        out_path, 
+        encoding={
+            'time': {
+                'dtype': 'float64', 
+                '_FillValue': None,
+                'units': 'hours since 2000-01-01 00:00:00.000000'
+            }
+        }
+    )
     print(f"  Saved concatenated data to {out_path}")
 
     #clean up memory

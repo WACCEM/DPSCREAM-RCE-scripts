@@ -26,8 +26,8 @@ indir="/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/${icase}/run"
 
 # Define output time range
 iyear=2000
-stmon=1
-stday=1
+stmon=2
+stday=14
 
 edmon=3
 edday=15

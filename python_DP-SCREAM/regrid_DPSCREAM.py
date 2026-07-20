@@ -26,11 +26,11 @@ import glob
 # User configuration
 # ---------------------------------------------------------------------------
 icase      = "RCE02_dx1km_gpu"
-varname    = "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
-
+varname    = "diag_equiv_reflectivity_max" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
+#diag_equiv_reflectivity_max
 # File naming parameters
-#stats_type = "INSTANT"
-stats_type = "AVERAGE"
+stats_type = "INSTANT"
+#stats_type = "AVERAGE"
 
 file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
@@ -343,7 +343,7 @@ for infile in infiles:
         regrid_out,
         encoding={
             varname: {'_FillValue': fill_val, 'dtype': 'float32'},
-            'time'  : {'_FillValue': None},
+            'time'  : {'_FillValue': None, 'units': 'hours since 2000-01-01 00:00:00.000000'},
             'lat'   : {'_FillValue': None},
             'lon'   : {'_FillValue': None},
             'x'     : {'_FillValue': None},

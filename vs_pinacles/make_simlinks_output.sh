@@ -2,8 +2,8 @@
 set -e
 #create symlinks for output files across different slurm jobs, since PINACLES creates new directories for each job
 
-icase="RCE00_dx1km_600x600km"
-icase_prefix="RCE_600x600_1km"
+icase="RCE02_dx1km_600x600km"
+icase_prefix="RCE02_dx1km_600x600km"
 tgtoutput="fields2d"
 
 indir_root="/pscratch/sd/k/ksa/simulation/PINACLES/rce/1km/${icase}"

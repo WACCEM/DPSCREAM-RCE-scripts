@@ -434,7 +434,7 @@ ds_out.attrs.update({
 })
 
 print(f"Writing: {output_file}")
-ds_out.to_netcdf(output_file, encoding={'time': {'_FillValue': None}})
+ds_out.to_netcdf(output_file, encoding={'time': {'_FillValue': None, 'units': 'hours since 2000-01-01 00:00:00.000000'}})
 print("Done.")
 
 ds.close()

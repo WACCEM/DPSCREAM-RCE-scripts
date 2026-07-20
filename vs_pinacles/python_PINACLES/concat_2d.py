@@ -24,7 +24,7 @@ import h5py
 # CONFIGURATION
 # =============================================================================
 
-icase   = "RCE00_dx1km_600x600km"
+icase   = "RCE01_dx1km_600x600km"
 
 in_dir  = (
     f"/pscratch/sd/w/wcmca1/PINACLES/rce/"
@@ -39,7 +39,7 @@ out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw"
 # surface_sw_down, surface_sw_up, toa_lw_down, toa_lw_up, toa_sw_down,
 # toa_sw_up, visibility, and height-level fields (e.g., T_100.0, qv_500.0, ...)
 #varname = "qni1_9900.0_m3"
-varname = "rain_rate" #"LW_UP_TOA" 
+varname = "imse" #"rain_rate" #"LW_UP_TOA" 
 
 # File minute pattern for specifying frequency.
 # Use "00m" for hourly data (only read files on the hour).
@@ -49,7 +49,7 @@ minute_pattern = "00m"
 # Day range to process (inclusive, 0-based integer day numbers matching the
 # leading digits in filenames, e.g. 00d-HHh-... → day 0).
 day_start = 0
-day_end   = 60   # adjust to the last available simulation day
+day_end   = 45   # adjust to the last available simulation day
 
 # =============================================================================
 
@@ -224,6 +224,7 @@ for iday in range(day_start, day_end + 1):
                 f'Daily concatenation of PINACLES 2D field output '
                 f'({varname}), simulation day {iday:02d}'
             ),
+            'rain_rate_note': 'The variable rain_rate at time t represents the accumulated rain between the previous output time (t-1) and current output time (t).',
             'source_dir':  in_dir,
         },
     )
@@ -236,7 +237,8 @@ for iday in range(day_start, day_end + 1):
         encoding={
             'time': {'_FillValue': None},
             'x': {'_FillValue': None},
-            'y': {'_FillValue': None}
+            'y': {'_FillValue': None},
+            varname: {'dtype': 'float32'}
         }
     )
     print(f"  Written : {out_file}")

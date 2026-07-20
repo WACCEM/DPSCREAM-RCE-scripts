@@ -80,10 +80,10 @@ def to_days(datetime_index, t0):
 # User configuration
 # ---------------------------------------------------------------------------
 #DP-SCREAM variable setting
-varname = "LW_flux_up_at_model_top" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
+varname = "LW_flux_up_at_model_top" #"LW_flux_up_at_model_top" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
 stats_type = "AVERAGE" # AVERAGE, INSTANT
 
-varname_PINACLES = "toa_lw_up" #when PINACLES simulations are also plotted
+varname_PINACLES = "toa_lw_up"  #"imse" #when PINACLES simulations are also plotted
 
 # List of simulation cases to overlay.  Each entry is a dict with:
 #   label    – legend label
@@ -163,11 +163,20 @@ cases = [
         "lwide"  : 3.0,
     },
     {
-        "label"   : "RCEMIP_PINACLES_dx1km_600x600km  (1-hr)",
+        "label"   : "RCEMIP_PINACLES_dx1km_600x600km v1",
         "varname" : varname_PINACLES,
         "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE01_dx1km_600x600km/havg"
                      "/RCE01_dx1km_600x600km.{vname}"
                      ".havg.day00_to_44.nc"),
+        "color"   : "green",
+        "lwide"  : 3.0,
+    },
+    {
+        "label"   : "RCEMIP_PINACLES_dx1km_600x600km v2",
+        "varname" : varname_PINACLES,
+        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE02_dx1km_600x600km/havg"
+                     "/RCE02_dx1km_600x600km.{vname}"
+                     ".havg.day00_to_24.nc"),
         "color"   : "green",
         "lwide"  : 3.0,
     }
@@ -228,6 +237,10 @@ fig, axes = plt.subplots(2, 1, figsize=(12, 7), sharex=True,
                          constrained_layout=True)
 ax_mean, ax_var = axes
 
+avg_last_10_mean_list = []
+avg_last_10_var_list = []
+case_labels = []
+
 for c, ds in zip(cases, datasets):
     vname = c.get("varname", varname)
     mean_var = vname
@@ -237,12 +250,23 @@ for c, ds in zip(cases, datasets):
     x_days = to_days(s_mean.index, t0_date)
     _=ax_mean.plot(x_days, s_mean.values,
                  color=c["color"], linewidth=c.get("lwide", 1.2), label=c["label"])
+    
+    avg_last_10 = s_mean.tail(10).mean()
+    print(f"Case {c['label']}: average of last 10 time samples of s_mean = {avg_last_10:.2e}")
+    avg_last_10_mean_list.append(avg_last_10)
+    case_labels.append(c['label'])
 
     if var_var in ds:
         s_var = to_pandas_series(ds, var_var, resample_freq)
         x_days = to_days(s_var.index, t0_date)
         _=ax_var.plot(x_days, s_var.values,
                     color=c["color"], linewidth=c.get("lwide", 1.2), label=c["label"])
+        
+        avg_last_10_var = s_var.tail(10).mean()
+        print(f"Case {c['label']}: average of last 10 time samples of s_var = {avg_last_10_var:.2e}")
+        avg_last_10_var_list.append(avg_last_10_var)
+    else:
+        avg_last_10_var_list.append(None)
 
 # --- Formatting ---
 resample_label = f" ({resample_freq} mean)" if resample_freq else ""
@@ -278,6 +302,64 @@ plt.show()
 #if not (hasattr(sys, 'ps1') or 'ipykernel' in sys.modules):
 if not _interactive:
     plt.close(fig)
+
+# %%
+# ---------------------------------------------------------------------------
+# Bar graphs for time-average quantities
+# ---------------------------------------------------------------------------
+ymin0, ymax0=None,None
+ymin1, ymax1=None,None
+
+if(varname == "imse"):
+    ymin0 = 3.3e9
+    ymax0 = 3.5e9
+elif(varname == "LW_flux_up_at_model_top"):
+    ymin0 = 200
+    ymax0 = 300
+    ymin1 = 1000
+    ymax1 = 2000
+
+fig_bar, axes_bar = plt.subplots(2, 1, figsize=(12, 12), constrained_layout=True)
+
+x_pos = range(len(case_labels))
+colors = [c["color"] for c in cases]
+
+bars0 = axes_bar[0].bar(x_pos, avg_last_10_mean_list, color=colors)
+for i, rect in enumerate(bars0):
+    height = rect.get_height()
+    _=axes_bar[0].text(rect.get_x() + rect.get_width()/2., height,
+                       f'{avg_last_10_mean_list[i]:.2e}',
+                       ha='center', va='bottom', fontsize=10)
+_=axes_bar[0].set_xticks(x_pos)
+#_=axes_bar[0].set_xticklabels(case_labels, rotation=45, ha='right')
+_=axes_bar[0].set_ylabel(f"{varname} [{units}]", fontsize=11)
+_=axes_bar[0].set_title(f"Time-mean of last 10 samples: {varname}", fontsize=12)
+_=axes_bar[0].grid(True, linestyle="--", linewidth=0.5, alpha=0.6, axis='y')
+_=axes_bar[0].set_ylim(ymin0, ymax0)
+var_plot_values = [v if v is not None else 0 for v in avg_last_10_var_list]
+bars1 = axes_bar[1].bar(x_pos, var_plot_values, color=colors)
+for i, rect in enumerate(bars1):
+    height = rect.get_height()
+    if avg_last_10_var_list[i] is not None:
+        _=axes_bar[1].text(rect.get_x() + rect.get_width()/2., height,
+                           f'{var_plot_values[i]:.2e}',
+                           ha='center', va='bottom', fontsize=10)
+_=axes_bar[1].set_xticks(x_pos)
+_=axes_bar[1].set_xticklabels(case_labels, rotation=45, ha='right')
+_=axes_bar[1].set_ylabel(f"{varname}_var [{var_units}]", fontsize=11)
+_=axes_bar[1].set_title(f"Time-mean of last 10 samples: {varname}_var", fontsize=12)
+_=axes_bar[1].grid(True, linestyle="--", linewidth=0.5, alpha=0.6, axis='y')
+_=axes_bar[1].set_ylim(ymin1, ymax1)
+
+if savefig:
+    bar_out_file = out_file.replace('.pdf', '_bars.pdf')
+    fig_bar.savefig(bar_out_file, dpi=dpi, bbox_inches="tight")
+    print(f"\nBar graph saved: {bar_out_file}")
+
+plt.show()
+
+if not _interactive:
+    plt.close(fig_bar)
 
 # %%
 

@@ -47,7 +47,7 @@ minute_pattern = "00m"
 # Day range to process (inclusive, 0-based integer day numbers matching the
 # leading digits in filenames, e.g. 00d-HHh-... → day 0).
 day_start = 0
-day_end   = 43   # adjust to the last available simulation day
+day_end   = 44   # adjust to the last available simulation day
 
 # %%
 

@@ -2,7 +2,7 @@
 #SBATCH -A m1867
 #SBATCH -q xfer
 #SBATCH -t 20:00:00
-#SBATCH -J htar_mpas
+#SBATCH -J htar_dpscream
 ##SBATCH -L SCRATCH  #does not work. Gives an error
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=koichi.sakaguchi@pnnl.gov

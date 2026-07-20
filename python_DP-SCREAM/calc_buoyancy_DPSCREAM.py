@@ -306,7 +306,7 @@ for infile in infiles:
         regrid_out,
         encoding={
             varname: {'_FillValue': fill_val, 'dtype': 'float32'},
-            'time'  : {'_FillValue': None},
+            'time'  : {'_FillValue': None, 'units': 'hours since 2000-01-01 00:00:00.000000'},
         })
     print(f"  Saved regridded output: {regrid_out}")
 
