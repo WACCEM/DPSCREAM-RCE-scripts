@@ -99,7 +99,9 @@ for fpath in all_sample_files:
         continue
         
     # Process each time slice in the day's files (usually 24 hourly slices)
-    times = ds_dict["rain_rate"]['time'].values
+    # Extract times from the INSTANT variable ('ref') so the output filename
+    # accurately reflects the end of the averaging interval (e.g. 0100.nc instead of 0000.nc)
+    times = ds_dict["ref"]['time'].values
     
     for i, t_val in enumerate(times):
         t_hours = float(t_val)
@@ -118,6 +120,12 @@ for fpath in all_sample_files:
             # but PINACLES mcstrack script uses ('y', 'x') as primary dimensions.
             # We rename the dimensions to align with the required PINACLES format.
             da = da.rename({'lat': 'y', 'lon': 'x'})
+            
+            # Drop the original time coordinate to prevent xarray from aligning
+            # slightly different time values between AVERAGE and INSTANT variables
+            # (e.g., 960 vs 961) which would otherwise result in NaNs.
+            if 'time' in da.coords:
+                da = da.drop_vars('time')
             
             ds_out[out_var] = da
             
