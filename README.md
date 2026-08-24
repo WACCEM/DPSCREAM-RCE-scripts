@@ -102,6 +102,12 @@ See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 | RCE05_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with `do_iop_subsidence=false` |
 | RCE06_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with P3 linear ccn function as in v3.0.2 |
 | RCE07_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with the high solar irradiance in v3.0.2 |
+| RCE02_dx1km_gpu |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config |
+| dx1km_L150km_RCE01_gpu|  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & RCEMIP IC |
+| dx1km_L150km_RCE02_gpu |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & default RCE IC |
+| dx1km_L150km_RCE03_gpu? |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC |
+| dx1km_L600km_RCE03_gpu |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC|
+
 
 ### output
 

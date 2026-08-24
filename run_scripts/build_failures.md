@@ -100,6 +100,41 @@ The run scripts show the `module load` command as a comment near the top
 
 ---
 
+## Build Failure: Missing EKAT Header `ekat_std_utils.hpp`
+
+**Date**: 2026-08-11
+**Local Branch**: `ksa/nersc-uvwinds`
+**Source Path**: `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone/components/eamxx/src/diagnostics/horiz_winds_at_height.cpp`
+
+### Symptom
+
+During the compilation of EAMxx diagnostics, the build fails with:
+
+```text
+/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone/components/eamxx/src/diagnostics/horiz_winds_at_height.cpp:3:10: fatal error: ekat/std_meta/ekat_std_utils.hpp: No such file or directory
+    3 | #include "ekat/std_meta/ekat_std_utils.hpp"
+```
+
+### Cause
+
+When porting new diagnostic features (e.g., U/V winds from the `ksa/uvwinds` branch) to the `ksa/nersc` branch, there is a mismatch in the `ekat` submodule version. The `ksa/uvwinds` branch uses a newer `ekat` submodule that organizes `ekat_std_utils.hpp` under the `ekat/std_meta/` directory. However, the `ksa/nersc` branch points to an older `ekat` submodule where this header is directly accessible via `<ekat_std_utils.hpp>`.
+
+### Fix
+
+Update the `#include` directive in the affected source code (`horiz_winds_at_height.cpp`) to match the include path expected by the older `ekat` submodule used on the `ksa/nersc` branch.
+
+Change:
+```cpp
+#include "ekat/std_meta/ekat_std_utils.hpp"
+```
+
+To:
+```cpp
+#include <ekat_std_utils.hpp>
+```
+
+---
+
 ## Build Failure: `CUDA::cudart_static_deps` not found during CMake Generate
 
 **Date**: 2026-04-14  
@@ -298,6 +333,73 @@ After applying this fix, also delete the stale cmake build directory:
 rm -rf /pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE01_dx1km_gpu_branch/build/cmake-bld
 ```
 Then re-run `./case.build` from the case scripts directory.
+
+---
+
+## Build Failure: Missing Header `share/scream_types.hpp`
+
+**Date**: 2026-08-11  
+**Local Branch**: `ksa/nersc-uvwinds`  
+**Source Path**: `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone/components/eamxx/src/diagnostics/field_horiz_avg.hpp`
+
+### Symptom
+
+During compilation, the build fails with:
+```text
+fatal error: share/scream_types.hpp: No such file or directory
+```
+
+### Cause
+
+This is caused by porting code from an older branch (`ksa/uvwinds`) to a newer branch (`ksa/nersc`). In the newer version of the E3SM codebase, the atmospheric model component was officially renamed from `scream` to `eamxx`. As part of this rename, the `share/scream_types.hpp` file was moved and renamed to `share/core/eamxx_types.hpp`.
+
+### Fix
+
+Update the `#include` directive to point to the new file name and location.
+
+Change:
+```cpp
+#include "share/scream_types.hpp"
+```
+
+To:
+```cpp
+#include "share/core/eamxx_types.hpp"
+```
+
+---
+
+## Build Failure: NVCC Lambda Private/Protected Access Error
+
+**Date**: 2026-08-11  
+**Local Branch**: `ksa/nersc-uvwinds`  
+**Source Path**: `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone/components/eamxx/src/diagnostics/field_horiz_avg.cpp`
+
+### Symptom
+
+When compiling with NVCC (Nvidia's CUDA compiler), the build fails with an error similar to:
+```text
+error: The enclosing parent function ("compute_diagnostic_impl") for an extended __host__ __device__ lambda cannot have private or protected access within its class
+```
+
+### Cause
+
+Kokkos extended `__host__ __device__` lambdas (such as those created by `KOKKOS_LAMBDA`) cannot be launched from within `private` or `protected` class methods when compiling for GPU via NVCC due to compiler restrictions.
+
+### Fix
+
+Wrap the function declaration (in this case, `compute_diagnostic_impl`) in an `#ifdef KOKKOS_ENABLE_CUDA` block within the header file (e.g., `field_horiz_avg.hpp`) to explicitly force the method to be `public` when compiling for GPU.
+
+Example:
+```cpp
+protected:
+  void initialize_impl (const RunType run_type);
+#ifdef KOKKOS_ENABLE_CUDA
+public:
+#endif
+  void compute_diagnostic_impl ();
+protected:
+```
 
 ---
 

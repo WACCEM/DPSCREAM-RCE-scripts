@@ -38,7 +38,7 @@ from check_output_stream import get_output_stream
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx1km_gpu"
+icase      = "dx1km_L150km_RCE01_gpu"
 stats_type = "AVERAGE" # "INSTANT" or "AVERAGE" #later modified depending on the variable using the get_output_stream function, which checks the variable name against the output stream types to determine which one it belongs to. If the variable is not found in either stream, it will be skipped with a warning.
 
 file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
@@ -51,7 +51,7 @@ frequency = "nhours_x1" # e.g. "nmins_x5" (= 5 minutes), "nhours_x1" (= 1 hour),
 # Variables to process.  Use ["all"] to process every ncol-based variable
 # found in the input file(s). All variables must have the same file_type, stats_type, and frequency as specified above.
 #vartodo = ["VapWaterPath"]  #,"LW_flux_up_at_model_top",VapWaterPath
-varname = "precip_total_surf_mass_flux" # 
+varname = "LW_flux_up_at_model_top" # 
 
 # Input files produced by concat_DPSCREAM.py.
 if(file_type == "raw"):
@@ -64,7 +64,7 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/havg")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
-ts_end   = "2000-03-15"
+ts_end   = "2000-04-30"
 
 # %%
 

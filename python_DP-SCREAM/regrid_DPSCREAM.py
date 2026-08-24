@@ -25,22 +25,23 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx1km_gpu"
-varname    = "diag_equiv_reflectivity_max" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
+icase      = "dx1km_L150km_RCE02_gpu"
+varname    = "LW_flux_up_at_model_top" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
 #diag_equiv_reflectivity_max
 # File naming parameters
 stats_type = "INSTANT"
 #stats_type = "AVERAGE"
 
-file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
    #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
    #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
 frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct the file name pattern for searching the input files to be concatenated
 
-#in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/processed")
-#in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/freq_change")
-in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
+if(file_type=="raw"):
+    in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
+else:
+    in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 
 
 # Output directory (created if it does not already exist)
@@ -48,25 +49,26 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
-ts_end   = "2000-03-15"
+ts_end   = "2000-04-30"
 
-# %%
 
 # ESMF weight file produced by ESMF_RegridWeightGen.
 # Maps from the unstructured DP-SCREAM source grid (ncol columns) to the
 # desired regular Cartesian destination grid.
 remap_method = "patch"
 weightdir  = "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/"
-srcgrid = "DPSCREAM_RCE_dx1km_600x600km"
-dstgrid = "PINACLES_YX_dx1km_600x600km"
+srcgrid = "DPSCREAM_RCE_dx1km_150x150km_plus"
+dstgrid = "PINACLES_YX_dx1km_150x150km"
+
+# %%
 weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")
 
 # Destination grid spacing in metres – used to compute Cartesian x/y
 # cell-centre coordinates (dst_dx/2, 3*dst_dx/2, …) in the regridded output.
 dst_dx = 1500.0 #1,500m for physics grid of the 1km simulation
-if(dstgrid == "PINACLES_YX_dx1km_600x600km"):
+if("dx1km" in dstgrid):
     dst_dx = 1000.0 #1,000m for PINACLES 1km grid
-elif(dstgrid == "PINACLES_YX_dx3km_600x600km"):
+elif("dx3km" in dstgrid):
     dst_dx = 3000.0 #3,000m for PINACLES 3km grid
 
 # ---------------------------------------------------------------------------

@@ -29,7 +29,6 @@ if not _interactive:
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.ticker import AutoMinorLocator
-sys.path.append("/global/common/software/m1867/python/ksa_env")
 
 from ks_pkg.plot_settings import init_style
 init_style()
@@ -80,106 +79,107 @@ def to_days(datetime_index, t0):
 # User configuration
 # ---------------------------------------------------------------------------
 #DP-SCREAM variable setting
-varname = "LW_flux_up_at_model_top" #"LW_flux_up_at_model_top" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
-stats_type = "AVERAGE" # AVERAGE, INSTANT
+varname = "imse" #"LW_flux_up_at_model_top" # "SW_flux_dn_at_model_top" # "imse" #"VapWaterPath"
+stats_type = "INSTANT" # AVERAGE, INSTANT
 
 varname_PINACLES = "toa_lw_up"  #"imse" #when PINACLES simulations are also plotted
 
 # List of simulation cases to overlay.  Each entry is a dict with:
 #   label    – legend label
-#   filepath – path to the .havg.*.nc file
+#   indir    – directory path to the input file
+#   infile   – file name of the input file
 #   color    – line colour (matplotlib colour string or hex)
 cases = [
     # {
     #     "label"   : "scream_cpu_dpxx_RCE_dx1km  (5-min)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/scream_cpu_dpxx_RCE_dx1km/havg"
-    #                  f"/scream_cpu_dpxx_RCE_dx1km.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-02-16.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/scream_cpu_dpxx_RCE_dx1km/havg",
+    #     "infile"  : f"scream_cpu_dpxx_RCE_dx1km.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-02-16.nc",
     #     "color"   : "steelblue",
     #     "lwide"  : 1.5,
     # },
     # {
     #     "label"   : "RCE01_dx1km_gpu_branch  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE01_dx1km_gpu_branch/havg"
-    #                  f"/RCE01_dx1km_gpu_branch.{varname}"
-    #                  f".havg.{stats_type}.2000-02-17_to_2000-04-30.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/RCE01_dx1km_gpu_branch/havg",
+    #     "infile"  : f"RCE01_dx1km_gpu_branch.{{vname}}.havg.{stats_type}.2000-02-17_to_2000-04-30.nc",
     #     "color"   : "darkorange",
     #     "lwide"  : 1.5,
     # },
     # {
     #     "label"   : "v302_dx3km_gpu  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE01_dx3km_gpu/havg"
-    #                  f"/RCE01_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-05-31.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/RCE01_dx3km_gpu/havg",
+    #     "infile"  : f"RCE01_dx3km_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-05-31.nc",
     #     "color"   : "red",
     #     "lwide"  : 2.0,
     # },
     # {
     #     "label"   : "RCEMIP_PINACLES_dx3km_150x150km  (1-hr)",
     #     "varname" : "VWP",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE03_150x150_1km/havg"
-    #                  "/RCE03_150x150_1km.{vname}"
-    #                  ".havg.day00_to_60.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE03_150x150_1km/havg",
+    #     "infile"  : "RCE03_150x150_1km.{vname}.havg.day00_to_60.nc",
     #     "color"   : "orange",
     #     "lwide"  : 3.0,
     # },
     # {
     #     "label"   : "v310_dx3km_gpu  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE02_dx3km_gpu/havg"
-    #                  f"/RCE02_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-05-15.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx3km_gpu/havg",
+    #     "infile"  : f"RCE02_dx3km_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-05-15.nc",
     #     "color"   : "blueviolet",
     #     "lwide"  : 2.0,
     # },
     # {
     #     "label"   : "RCEMIP_DPSCREAMv310_dx3km_600x600km  (1-hr)",
-    #     "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-    #                  "/RCE09_dx3km_gpu/havg"
-    #                  f"/RCE09_dx3km_gpu.{varname}"
-    #                  f".havg.{stats_type}.2000-01-01_to_2000-04-15.nc"),
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/RCE09_dx3km_gpu/havg",
+    #     "infile"  : f"RCE09_dx3km_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-04-15.nc",
     #     "color"   : "gray",
     #     "lwide"  : 2.0,
     # },
+    # {
+    #     "label"   : "RCEMIP_DPSCREAMv310_dx1km_600x600km v2",
+    #     "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/havg",
+    #     "infile"  : f"RCE02_dx1km_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-03-15.nc",
+    #     "color"   : "Blue",
+    #     "lwide"  : 3.0,
+    # },
+    # {
+    #     "label"   : "PINACLES_dx1km_600x600km v0",
+    #     "varname" : varname_PINACLES,
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/havg",
+    #     "infile"  : "RCE00_dx1km_600x600km.{vname}.havg.day00_to_59.nc",
+    #     "color"   : "lightgreen",
+    #     "lwide"  : 3.0,
+    # },
+    # {
+    #     "label"   : "RCEMIP_PINACLES_dx1km_600x600km v1",
+    #     "varname" : varname_PINACLES,
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE01_dx1km_600x600km/havg",
+    #     "infile"  : "RCE01_dx1km_600x600km.{vname}.havg.day00_to_44.nc",
+    #     "color"   : "green",
+    #     "lwide"  : 3.0,
+    # },
+    # {
+    #     "label"   : "RCEMIP_PINACLES_dx1km_600x600km v2",
+    #     "varname" : varname_PINACLES,
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE02_dx1km_600x600km/havg",
+    #     "infile"  : "RCE02_dx1km_600x600km.{vname}.havg.day00_to_24.nc",
+    #     "color"   : "green",
+    #     "lwide"  : 3.0,
+    # },
     {
-        "label"   : "RCEMIP_DPSCREAMv310_dx1km_600x600km v2",
-        "filepath": ("/pscratch/sd/w/wcmca1/DP-SCREAM"
-                     "/RCE02_dx1km_gpu/havg"
-                     f"/RCE02_dx1km_gpu.{varname}"
-                     f".havg.{stats_type}.2000-01-01_to_2000-03-15.nc"),
-        "color"   : "Blue",
+        "label"   : "DP_IC-RCEMIP_L150km",
+        "varname" : varname,
+        "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/dx1km_L150km_RCE01_gpu/havg",
+        "infile"  : f"dx1km_L150km_RCE01_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-04-30.nc",
+        "color"   : "blue",
         "lwide"  : 3.0,
     },
     {
-        "label"   : "PINACLES_dx1km_600x600km v0",
-        "varname" : varname_PINACLES,
-        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/havg"
-                     "/RCE00_dx1km_600x600km.{vname}"
-                     ".havg.day00_to_59.nc"),
-        "color"   : "lightgreen",
-        "lwide"  : 3.0,
-    },
-    {
-        "label"   : "RCEMIP_PINACLES_dx1km_600x600km v1",
-        "varname" : varname_PINACLES,
-        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE01_dx1km_600x600km/havg"
-                     "/RCE01_dx1km_600x600km.{vname}"
-                     ".havg.day00_to_44.nc"),
+        "label"   : "DP_IC-DPRCE_L150km",
+        "varname" : varname,
+        "indir"   : "/pscratch/sd/w/wcmca1/DP-SCREAM/dx1km_L150km_RCE02_gpu/havg",
+        "infile"  : f"dx1km_L150km_RCE02_gpu.{{vname}}.havg.{stats_type}.2000-01-01_to_2000-04-30.nc",
         "color"   : "green",
         "lwide"  : 3.0,
     },
-    {
-        "label"   : "RCEMIP_PINACLES_dx1km_600x600km v2",
-        "varname" : varname_PINACLES,
-        "filepath": ("/pscratch/sd/w/wcmca1/PINACLES/rce/RCE02_dx1km_600x600km/havg"
-                     "/RCE02_dx1km_600x600km.{vname}"
-                     ".havg.day00_to_24.nc"),
-        "color"   : "green",
-        "lwide"  : 3.0,
-    }
 ]
 
 # Optional: resample / smooth the time series before plotting.
@@ -207,7 +207,7 @@ os.makedirs(out_dir, exist_ok=True)
 datasets = []
 for c in cases:
     vname = c.get("varname", varname)
-    fp = c["filepath"].format(vname=vname)
+    fp = os.path.join(c["indir"], c["infile"].format(vname=vname))
     if not os.path.isfile(fp):
         raise FileNotFoundError(f"Input file not found: {fp}")
     ds = xr.open_dataset(fp, use_cftime=True)

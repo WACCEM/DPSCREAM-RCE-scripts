@@ -19,22 +19,22 @@ conda activate dpscream_analysis
 
 pydir="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/python_DP-SCREAM"
 
-icase="RCE10_dx3km_gpu"
+icase="dx1km_L150km_RCE02_gpu"
 ifreq="nhours_x1"
 indir="/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/${icase}/run"
-#istat="INSTANT"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
-#varname="T_mid"
-istat="AVERAGE"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
-varname="rrtmgp_T_mid_tend"
+istat="INSTANT"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
+varname="qc"  #"RelativeHumidity"  #"T_mid"
+#istat="AVERAGE"  #need to add the --stats_type=$istat option for the AVERAGE history file (default is INSTANT)
+#varname="rrtmgp_T_mid_tend"
 ihist="hist.${istat}.${ifreq}"
 
 # Define output time range
 iyear=2000
 stmon=1
-stday=16
+stday=1
 
-edmon=2
-edday=28
+edmon=4
+edday=30
 
 stmonp=$(printf "%02d" $stmon)
 stdayp=$(printf "%02d" $stday)

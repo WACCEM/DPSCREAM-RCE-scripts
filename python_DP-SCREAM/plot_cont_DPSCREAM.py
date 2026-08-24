@@ -40,7 +40,6 @@ import matplotlib.animation as manimation
 import colormaps as cmaps
 import shutil
 import subprocess
-sys.path.append("/global/common/software/m1867/python/ksa_env")
 sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
 
 from ks_pkg.plot_settings import init_style
@@ -55,6 +54,29 @@ if _ffmpeg:
 else:
     print("WARNING: no h264-capable ffmpeg found; animation will be saved as GIF.")
     print("  To fix: conda install -c conda-forge ffmpeg")
+
+def days_since_jan1_to_month_day(days_since_jan1, iyear, calendar="noleap"):
+    """
+    Returns the month and day (as integers) given the number of days since Jan 1st.
+    For days_since_jan1=0, returns (1, 1) i.e., Jan 01.
+    """
+    import datetime
+    if calendar == "noleap":
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        rem = int(days_since_jan1)
+        m = 1
+        for dim in days_in_month:
+            if rem < dim:
+                d = rem + 1
+                return m, d
+            rem -= dim
+            m += 1
+        raise ValueError("Days exceeded year length")
+    elif calendar == "standard":
+        dt = datetime.datetime(iyear, 1, 1) + datetime.timedelta(days=int(days_since_jan1))
+        return dt.month, dt.day
+    else:
+        raise ValueError(f"Unknown calendar: {calendar}")
 
 def _update(frame_idx):
     """Update the plot for one animation frame."""
@@ -84,12 +106,12 @@ def _update(frame_idx):
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx1km_gpu" #"RCE01_dx1km_gpu_branch"
-varname    = "precip_total_surf_mass_flux"
+icase      = "dx1km_L150km_RCE01_gpu" #"RCE01_dx1km_gpu_branch"
+varname    = "LW_flux_up_at_model_top"
 crange_name = None
 # File naming parameters (must match regrid_DPSCREAM.py output convention)
 frequency  = "nhours_x1"
-dstgrid    = "PINACLES_YX_dx1km_600x600km"
+dstgrid    = "PINACLES_YX_dx1km_150x150km"
 #history file stats type; will be set and overwritten below for know variables
 stats_type = "INSTANT"
 #stats_type = "AVERAGE"
@@ -99,12 +121,26 @@ in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date range to load (inclusive, YYYY-MM-DD)
 iyear = 2000
+
+# Option 1: Specify directly
 # ts_start = f"{iyear}-03-05"
 # ts_end   = f"{iyear}-03-15"
-ts_start = f"{iyear}-01-01"
-ts_end   = f"{iyear}-01-10"
-# ts_start = f"{iyear}-03-01"
-# ts_end   = f"{iyear}-03-31"
+# ts_start = f"{iyear}-01-01"
+# ts_end   = f"{iyear}-01-10"
+# ts_start = f"{iyear}-04-01"
+# ts_end   = f"{iyear}-04-10"
+
+# Option 2: Specify by number of days since Jan 1st (0 = Jan 1st)
+#e.g., 
+#start_day = 90  # April 1st in noleap
+#end_day   = 99  # April 10th in noleap
+
+start_day = 100  # 
+end_day   = 110  #
+m_start, d_start = days_since_jan1_to_month_day(start_day, iyear, calendar="noleap")
+m_end, d_end     = days_since_jan1_to_month_day(end_day, iyear, calendar="noleap")
+ts_start = f"{iyear}-{m_start:02d}-{d_start:02d}"
+ts_end   = f"{iyear}-{m_end:02d}-{d_end:02d}"
 
 # For 3-D variables (time, lev, lat, lon): choose which level index to plot.
 # Ignored for 2-D variables.
@@ -133,7 +169,7 @@ vfactor = 1.0
 vshift = 0.0
 
 instant_list = ["diag_equiv_reflectivity_max", "imse"] #state
-average_list = ["LW_flux_up_at_model_top","precip_total_surf_mass_flux"]  #flux and tendencies, possibly except for those used feature tracking
+average_list = ["precip_total_surf_mass_flux"]  #flux and tendencies, possibly except for those used feature tracking
 if(varname in instant_list):
     stats_type = "INSTANT"
 elif(varname in average_list):
@@ -314,22 +350,27 @@ del im1, ax1, cb1
 # ===========================================================================
 # snapshot index (0-based index into the concatenated time axis)
 # ---------------------------------------------------------------------------
-doplot=False
+doplot=True
+savefig_snap  = True   # Section 2: save snapshot figure as PDF
+
 if(doplot):
     print(f"\n--- Section 2: snapshot at time index ---")
     print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
     print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-    plot_day  = 80   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+    plot_doy  = 100   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+    plot_mon, plot_day = days_since_jan1_to_month_day(plot_doy, iyear, calendar="noleap")
     plot_hour = 12
-    plot_time = np.datetime64(t0_date + pd.Timedelta(days=plot_day, hours=plot_hour))
+
+    plot_time = pd.Timestamp(year=iyear, month=plot_mon, day=plot_day, hour=plot_hour).to_datetime64()
     snap_tidxs = np.where(ds['time'].values == plot_time)[0]
-    snap_tidx = snap_tidxs[0] if snap_tidxs.size > 0 else np.nan
+    
+    if snap_tidxs.size == 0:
+        raise ValueError(f"Time {pd.Timestamp(plot_time)} not found in dataset.")
+    snap_tidx = snap_tidxs[0]
 
-    savefig_snap  = False   # Section 2: save snapshot figure as PDF
 
-    out_snap  = os.path.join(out_dir, f"{icase}.{varname}.snap_t{snap_tidx:05d}.pdf")
-
+    out_snap  = os.path.join(out_dir, f"{icase}.{varname}.snap_doy{plot_doy:03d}-{plot_hour:02d}.pdf")
 
     field_snap = get_2d_slice(da, snap_tidx, lev_index=lev_idx if is_3d else None,
                               vfactor=vfactor, vshift=vshift)
@@ -373,16 +414,7 @@ if(doplot):
     # Free snapshot array and axes handles.
     del field_snap, im2, ax2, cb2
 
-
 # %%
-#in case it's done without making animations; close file handle ds
-# ds.close()
-# del ds
-
-# del da
-
-# %%
-# ===========================================================================
 # Section 3 – Animation
 # ===========================================================================
 

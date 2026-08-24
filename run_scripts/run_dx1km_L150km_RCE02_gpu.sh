@@ -2,7 +2,6 @@
 set -e
 #need to load the Python module, specifically cray-python module, before running this script to ensure the correct version of Python is used for the xmlchange and atmchange scripts.  If you do not have the correct version of Python loaded, you may encounter errors when running those scripts.
 # module load cray-python/3.11.7
-
 #######################################################################
 #######################################################################
 #######  Script to run SCREAMv1 in doubly periodic (DP) mode (DP-EAMxx)
@@ -29,7 +28,7 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=RCE02_dx1km_gpu
+export casename=dx1km_L150km_RCE02_gpu
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
@@ -68,15 +67,15 @@ export debug_queue=false
 #   to the total number of elements in your domain.  Note that if you are running
 #   on pm-gpu you will want to set this to either "4" or "8" if running the standard
 #   domain size and resolution (RCE excluded).
-num_procs=64
+num_procs=16
 # based on the table "supported PECOUNTS", the value for ne30pg2_ne30pg2
 #https://e3sm.atlassian.net/wiki/spaces/DOC/pages/3386015745/How+To+Run+EAMxx+SCREAMv1
 
 stop_option=ndays
-stop_n=5
+stop_n=10
 
 # set walltime
-walltime='03:30:00'
+walltime='01:30:00'
 
 ## SET DOMAIN SIZE AND DYNAMICS RESOLUTION:
 # - Note that these scripts are set to run with dx=dy=3.33 km
@@ -87,12 +86,12 @@ walltime='03:30:00'
 # (there are 3x3 unique dynamics columns per element, hence the "3" factor)
 
 # Set number of elements in the x&y directions
-num_ne_x=200
-num_ne_y=200
+num_ne_x=52
+num_ne_y=52
 
 # Set domain length [m] in x&y direction
-domain_size_x=600000
-domain_size_y=600000
+domain_size_x=156000
+domain_size_y=156000
 
 # BELOW SETS RESOLUTION DEPENDENT SETTINGS
 # (Note that all default values below are appropriate for dx=dy=3.33 km and do not
@@ -124,20 +123,20 @@ nu_top_dyn=3000.0
 
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
-#-switch to run/not to run CESM scripts  -----------------------------------
-run_setup=false        #case.setup 
+#-switches to run/not to run CESM scripts  -----------------------------------
+run_setup=true        #case.setup 
 clean_setup=false
 
 
-run_build=false       #./case.build
+run_build=true       #./case.build
 clean_build=false
 
 edit_output=true
 #./atmchange to edit output options (e.g., compute tendencies for output, add yaml output files, etc)
 
-edit_build=false
-edit_domain=false
-edit_jobconf=false
+edit_build=true
+edit_domain=true
+edit_jobconf=true
 edit_atmconf=true
 
 do_continue_run=FALSE
@@ -165,33 +164,28 @@ run_job=true
 
 
   sst_val=300 # set constant SST value (ONLY valid for RCE case)
-  #IPO file name as the IC
-  iop_file="RCE09_dx3km_gpu_equilibrium_300K_profile.nc"
-  # Location of IOP file
-  iop_path="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input"
+  iop_file=RCE_300K_iopfile_4scam.nc #IOP file name
+   # Location of IOP file
+  iop_path=/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input
 
   do_turnoff_swrad=false # Turn off SW calculation (if false, keep false)
 
 # End Case specific stuff here
-
 
   PROJECT=$projectname
   E3SMROOT=${code_dir}/${code_tag}
   echo "E3SM root: $E3SMROOT"
 
   # Verify the required branch is checked out before proceeding
+  required_branch="ksa/nersc-uvwinds"
   current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
-  echo "Confirmed E3SM branch: ${current_branch}"
-
-  required_branch="ksa/nersc" #includes more strict compliance to RCEMIP
   if [[ "${current_branch}" != "${required_branch}" ]]; then
       echo "ERROR: E3SM source code is on branch '${current_branch}'," \
            "but '${required_branch}' is required."
       echo "       Run: git -C ${E3SMROOT} checkout ${required_branch}"
       exit 1
-  else
-      echo "current branch matches the required branch"
   fi
+ echo "Confirmed E3SM branch: ${current_branch}"
 
   compset=FRCE-SCREAMv1-DP
 
@@ -229,11 +223,10 @@ if [[ $edit_build == 'true' ]]; then
   ./xmlchange --id EXEROOT --val "${case_build_dir}"
   ./xmlchange --id RUNDIR --val "${case_run_dir}"
   ./xmlchange --id DEBUG --val FALSE
-
 fi
 
 # Set queue to debug, only on certain machines
-  if [[ $debug_queue == 'true' ]]; then
+if [[ $debug_queue == 'true' ]]; then
     if [[ $machine == pm* ]]; then
       ./xmlchange --id JOB_QUEUE --val 'debug'
     fi
@@ -245,7 +238,7 @@ fi
 else
     ./xmlchange --id JOB_QUEUE --val 'regular'
 
-  fi
+fi
 
 if [[ $edit_jobconf == 'true' ]]; then
 # need to use single thread
@@ -254,16 +247,16 @@ if [[ $edit_jobconf == 'true' ]]; then
     ./xmlchange  NTASKS_$component=$npes,NTHRDS_$component=1,ROOTPE_$component=0
   done
 
-  # Compute maximum allowable number for processes (number of elements)
-  dyn_pes_nxny=$((num_ne_x * num_ne_y)) #not used (?) KSA
+# Compute maximum allowable number for processes (number of elements)
+    dyn_pes_nxny=$((num_ne_x * num_ne_y)) #not used (?) KSA
 fi
 
 
 if [[ $edit_domain == 'true' ]]; then
-  # Compute number of columns needed for component model initialization
+# Compute number of columns needed for component model initialization
   comp_mods_nx=$((num_ne_x * num_ne_y * 4))
 
-  # Modify the latitude and longitude for the particular case
+# Modify the latitude and longitude for the particular case
   ./xmlchange PTS_MULTCOLS_MODE="TRUE",PTS_MODE="TRUE",PTS_LAT="$lat",PTS_LON="$lon"
   ./xmlchange MASK_GRID="USGS",PTS_NX="${comp_mods_nx}",PTS_NY=1
   ./xmlchange ICE_NX="${comp_mods_nx}",ICE_NY=1
@@ -274,6 +267,13 @@ fi
 
 # Modify the run start and duration parameters for the desired case
 #always edit
+
+# ./xmlchange RUN_TYPE="branch"
+
+# ./xmlchange RUN_REFCASE="$refcase"
+
+# ./xmlchange RUN_REFDATE="$refdate"
+
 ./xmlchange RUN_STARTDATE="$startdate"
 
 ./xmlchange START_TOD="$start_in_sec"
@@ -294,7 +294,7 @@ fi
 
 
 # Get local input data directory path
-  input_data_dir=$(./xmlquery DIN_LOC_ROOT -value)
+  input_data_dir=$(./xmlquery DIN_LOC_ROOT --value | tail -1)
 
 # Run case.setup if explicitly requested (run_setup=true), or if env_mach_specific.xml
 # is missing (e.g. after a previous case.setup --clean left no xml for xmlchange to read).
@@ -323,7 +323,7 @@ if [ "$edit_atmconf" = true ]; then
   ./atmchange nu_top=$nu_top_dyn
   ./atmchange se_ftype=2
   ./atmchange se_tstep=$dyn_dtime
-  ./atmchange rad_frequency=3
+  ./atmchange rad_frequency=10
   ./atmchange iop_srf_prop=$do_iop_srf_prop
   ./atmchange iop_dosubsidence=$do_iop_subsidence
   ./atmchange iop_coriolis=$do_iop_nudge_coriolis
@@ -364,12 +364,13 @@ if [ "$edit_output" = true ]; then
     #./atmchange physics::iop_forcing::compute_tendencies=T_mid,qv  #comment out due to an error
     # ERROR: physics::iop_forcing::compute_tendencies did not match any items
   
-    # configure yaml output
-    # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
-    # Note that you can have as many output streams (yaml files) as you want!
+ # configure yaml output
+ # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
+ # Note that you can have as many output streams (yaml files) as you want!
 
-    yamlfile1=scream_test9_output_avg_1hour.yaml
-    yamlfile2=scream_test9_output_inst_1hour.yaml
+    yamlfile1=scream_test11_output_avg_1hour.yaml
+    yamlfile2=scream_test11_output_inst_1hour.yaml
+    #yamlfile2=scream_horiz_avg_output_5min.yaml
 
     # ./atmchange output_yaml_files="./scream_horiz_avg_output_5min.yaml"
     # ./atmchange output_yaml_files+="./scream_output_avg_5min.yaml"

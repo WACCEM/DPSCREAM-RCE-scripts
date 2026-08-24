@@ -389,3 +389,37 @@ tested Python version (the script header already mentions this):
 ```bash
 source /global/common/software/e3sm/anaconda_envs/load_latest_e3sm_unified_pm-cpu.sh
 ```
+
+---
+
+## CFL violation during DP-SCREAM high-resolution runs — 2026-08-18
+
+case: dx1km_L600km_RCE03_gpu
+
+job id: 57196111
+
+rundir: `/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/dx1km_L600km_RCE03_gpu/run`
+
+### Symptom
+
+The simulation aborts and `srun: error: nidXXXX: task XX: Terminated` is seen in the main `e3sm.log.57196111.260817-234641`. 
+Checking the HOMME error log (e.g., `run/hommexx.errlog.64.26`) reveals the following explicit error:
+
+```
+label: Vertical remap: Negative (or nan) layer thickness detected, aborting!
+```
+
+### Root Cause
+
+A CFL (Courant–Friedrichs–Lewy) violation occurred in the dynamical core. When strong updrafts develop (e.g., deep convection reaching >30 m/s vertical velocities), the high wind speeds combined with a fine grid spacing (like `dx=1km`) cause the default dynamics time step to be too large to maintain numerical stability. This causes the vertical remapping step to calculate negative layer thicknesses.
+
+### Fix
+
+Reduce the dynamics time step (`dyn_dtime`) in your run script to a smaller value that still divides evenly into the `model_dtime`. For a 1 km resolution with `model_dtime=30`, the default `dyn_dtime=2.5` (a divisor of 12) may be too large. Decrease it to `1.5`, `1.25`, or `1.0`.
+
+```diff
+# In your run script:
+# dynamics time step [s]:
+-dyn_dtime=2.5
++dyn_dtime=1.5
+```

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 #need to load the Python module, specifically cray-python module, before running this script to ensure the correct version of Python is used for the xmlchange and atmchange scripts.  If you do not have the correct version of Python loaded, you may encounter errors when running those scripts.
-# module load cray-python/3.11.7
+# module load cray-python
 
 #######################################################################
 #######################################################################
@@ -29,7 +29,7 @@ set -e
 #######  of the scmlib repo to get you started.
 export CIME_MODEL=e3sm
 # Set the name of your case here
-export casename=RCE02_dx1km_gpu
+export casename=dx1km_L600km_RCE03_gpu
 
 # Set the case directory here
 export casedirectory=/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases
@@ -76,7 +76,8 @@ stop_option=ndays
 stop_n=5
 
 # set walltime
-walltime='03:30:00'
+#walltime='03:30:00'
+walltime='00:15:00'
 
 ## SET DOMAIN SIZE AND DYNAMICS RESOLUTION:
 # - Note that these scripts are set to run with dx=dy=3.33 km
@@ -87,12 +88,12 @@ walltime='03:30:00'
 # (there are 3x3 unique dynamics columns per element, hence the "3" factor)
 
 # Set number of elements in the x&y directions
-num_ne_x=200
-num_ne_y=200
+num_ne_x=208
+num_ne_y=208
 
 # Set domain length [m] in x&y direction
-domain_size_x=600000
-domain_size_y=600000
+domain_size_x=624000
+domain_size_y=624000
 
 # BELOW SETS RESOLUTION DEPENDENT SETTINGS
 # (Note that all default values below are appropriate for dx=dy=3.33 km and do not
@@ -111,7 +112,7 @@ model_dtime=30
 # dynamics time step [s]:
 #  should divide evenly into model_dtime.  As a general rule of thumb, divide
 #   model_dtime by 12 to get your dynamics time step.
-dyn_dtime=2.5
+dyn_dtime=2.5 #
 
 # SET SECOND ORDER VISCOSITY NEAR MODEL TOP
 #  NOTE that if you decrease resolution you will also need to reduce
@@ -125,20 +126,20 @@ nu_top_dyn=3000.0
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
 #-switch to run/not to run CESM scripts  -----------------------------------
-run_setup=false        #case.setup 
-clean_setup=false
+run_setup=true        #case.setup 
+clean_setup=true
 
 
-run_build=false       #./case.build
-clean_build=false
+run_build=true       #./case.build
+clean_build=true
 
-edit_output=true
+edit_output=false
 #./atmchange to edit output options (e.g., compute tendencies for output, add yaml output files, etc)
 
 edit_build=false
 edit_domain=false
 edit_jobconf=false
-edit_atmconf=true
+edit_atmconf=false
 
 do_continue_run=FALSE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
@@ -166,7 +167,7 @@ run_job=true
 
   sst_val=300 # set constant SST value (ONLY valid for RCE case)
   #IPO file name as the IC
-  iop_file="RCE09_dx3km_gpu_equilibrium_300K_profile.nc"
+  iop_file="PINACLES_RCE03_150x150_1km_profile_4scam.nc"
   # Location of IOP file
   iop_path="/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input"
 
@@ -183,7 +184,7 @@ run_job=true
   current_branch=$(git -C "${E3SMROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)
   echo "Confirmed E3SM branch: ${current_branch}"
 
-  required_branch="ksa/nersc" #includes more strict compliance to RCEMIP
+  required_branch="ksa/nersc-uvwinds" #includes more strict compliance to RCEMIP
   if [[ "${current_branch}" != "${required_branch}" ]]; then
       echo "ERROR: E3SM source code is on branch '${current_branch}'," \
            "but '${required_branch}' is required."
@@ -274,6 +275,7 @@ fi
 
 # Modify the run start and duration parameters for the desired case
 #always edit
+
 ./xmlchange RUN_STARTDATE="$startdate"
 
 ./xmlchange START_TOD="$start_in_sec"
@@ -305,6 +307,14 @@ if [ "$run_setup" = true ] || [[ ! -f env_mach_specific.xml ]]; then
     fi
 
     ./case.setup
+
+    # HOTFIX: The Perlmutter CUDA 13 / CPE 26.03 update requires locking to cpe/23.12 for Kokkos/CUDA12 compatibility.
+    # CIME parses env_mach_specific.xml directly, so we must patch the XML file, not the generated shell scripts!
+    sed -i 's/<command name="unload">cpe<\/command>/<command name="load">cpe\/23.12<\/command>/g' env_mach_specific.xml
+
+    # HOTFIX 2: Force the runtime to use the CUDA 12 version of the MPI GPU Transport Layer
+    sed -i 's/<environment_variables>/<environment_variables>\n      <env name="LD_LIBRARY_PATH">\/opt\/cray\/pe\/mpich\/8.1.28\/gtl\/lib:$ENV{LD_LIBRARY_PATH}<\/env>/g' env_mach_specific.xml
+
 
 fi
 
@@ -368,8 +378,8 @@ if [ "$edit_output" = true ]; then
     # See the example yaml files in the DPxx_SCREAM_SCRIPTS/yaml_file_example
     # Note that you can have as many output streams (yaml files) as you want!
 
-    yamlfile1=scream_test9_output_avg_1hour.yaml
-    yamlfile2=scream_test9_output_inst_1hour.yaml
+    yamlfile1=scream_test11_output_avg_1hour.yaml
+    yamlfile2=scream_test11_output_inst_1hour.yaml
 
     # ./atmchange output_yaml_files="./scream_horiz_avg_output_5min.yaml"
     # ./atmchange output_yaml_files+="./scream_output_avg_5min.yaml"

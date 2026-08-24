@@ -61,53 +61,53 @@ Averaging Type: Average
 Source: `scream_test9_output_avg_1hour.yaml`
 
 
-| Variable | Description | Source | Units |
-|----------|-------------|--------|-------|
-| `z_mid` | Height at layer midpoints | Dynamics | `m` |
-| `p_mid` | Pressure at layer midpoints | Dynamics | `Pa` |
-| `ps` | Surface pressure | HOMME | `Pa` |
-| `SeaLevelPressure` | Sea-level pressure | Diagnostics | `Pa` |
-| `pbl_height` | Planetary boundary layer height | SHOC | `m` |
-| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC | `(m^2)/s` |
-| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC | `K*(m/s)` |
-| `tke` | Turbulent kinetic energy | SHOC | `(m^2)/(s^2)` |
-| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC | `(kg/kg)^2` |
-| `micro_liq_ice_exchange` | Microphysics liquid-ice exchange | P3 | `kg/kg` |
-| `micro_vap_ice_exchange` | Microphysics vapor-ice exchange | P3 | `kg/kg` |
-| `micro_vap_liq_exchange` | Microphysics vapor-liquid exchange | P3 | `kg/kg` |
-| `precip_liq_surf_mass_flux` | Precipitation liquid surface mass flux | P3 | `m/s` |
-| `precip_ice_surf_mass_flux` | Precipitation ice surface mass flux | P3 | `m/s` |
-| `precip_total_surf_mass_flux`| Precipitation total surface mass flux | P3 | `m/s` |
-| `rad_heating_pdel` | Radiative heating | RRTMGP | `(Pa*K)/s` |
-| `sfc_flux_lw_dn` | Surface longwave downward flux | RRTMGP | `W/m2` |
-| `sfc_flux_sw_net` | Surface shortwave net flux | RRTMGP | `W/m2` |
-| `ShortwaveCloudForcing` | Shortwave cloud forcing | RRTMGP | `W/m2` |
-| `LongwaveCloudForcing` | Longwave cloud forcing | RRTMGP | `W/m2` |
-| `SW_flux_up_at_model_top` | Upward SW flux at model top | RRTMGP | `W/m2` |
-| `SW_flux_dn_at_model_top` | Downward SW flux at model top | RRTMGP | `W/m2` |
-| `LW_flux_up_at_model_top` | Upward LW flux at model top | RRTMGP | `W/m2` |
-| `SW_flux_dn_at_model_bot` | Downward SW flux at model bottom | RRTMGP | `W/m2` |
-| `SW_flux_up_at_model_bot` | Upward SW flux at model bottom | RRTMGP | `W/m2` |
-| `LW_flux_dn_at_model_bot` | Downward LW flux at model bottom | RRTMGP | `W/m2` |
-| `LW_flux_up_at_model_bot` | Upward LW flux at model bottom | RRTMGP | `W/m2` |
-| `*_clrsky_*` | Clear-sky equivalents of the above fluxes | RRTMGP | `W/m2` |
-| `ZonalVapFlux` | Zonal vapor flux | Diagnostics | `(kg/m)/s` |
-| `MeridionalVapFlux` | Meridional vapor flux | Diagnostics | `(kg/m)/s` |
-| `surface_upward_latent_heat_flux` | Surface upward latent heat flux | Coupler | `W/m2` |
-| `surf_mom_flux` | Surface momentum flux | Coupler | `N/(m^2)` |
-| `surf_sens_flux` | Surface sensible heat flux | Coupler | `W/(m^2)` |
-| `surf_evap` | Surface evaporation | Coupler | `(kg/(m^2))/s` |
-| `shoc_T_mid_tend` | Temperature tendency from SHOC | SHOC | `K/s` |
-| `p3_T_mid_tend` | Temperature tendency from P3 | P3 | `K/s` |
-| `rrtmgp_T_mid_tend` | Temperature tendency from RRTMGP | RRTMGP | `K/s` |
-| `homme_T_mid_tend` | Temperature tendency from HOMME | HOMME | `K/s` |
-| `shoc_qv_tend` | Water vapor tendency from SHOC | SHOC | `(kg/kg)/s` |
-| `p3_qv_tend` | Water vapor tendency from P3 | P3 | `(kg/kg)/s` |
-| `homme_qv_tend` | Water vapor tendency from HOMME | HOMME | `(kg/kg)/s` |
-| `PotentialTemperature_at_700hPa` | Potential temperature at 700 hPa | Diagnostics | `K` |
-| `PotentialTemperature_at_1000hPa`| Potential temperature at 1000 hPa | Diagnostics | `K` |
-| `omega_at_500hPa` | Vertical pressure velocity at 500 hPa | Diagnostics | `Pa/s` |
-| `RelativeHumidity_at_700hPa` | Relative humidity at 700 hPa | Diagnostics | `1` |
+| Variable | Description | Source | Units | Dimensions |
+|----------|-------------|--------|-------|------------|
+| `z_mid` | Height at layer midpoints | Dynamics | `m` | `(time, ncol, lev)` |
+| `p_mid` | Pressure at layer midpoints | Dynamics | `Pa` | `(time, ncol, lev)` |
+| `ps` | Surface pressure | HOMME | `Pa` | `(time, ncol)` |
+| `SeaLevelPressure` | Sea-level pressure | Diagnostics | `Pa` | `(time, ncol)` |
+| `pbl_height` | Planetary boundary layer height | SHOC | `m` | `(time, ncol)` |
+| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC | `(m^2)/s` | `(time, ncol, lev)` |
+| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC | `K*(m/s)` | `(time, ncol, lev)` |
+| `tke` | Turbulent kinetic energy | SHOC | `(m^2)/(s^2)` | `(time, ncol, lev)` |
+| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC | `(kg/kg)^2` | `(time, ncol, lev)` |
+| `micro_liq_ice_exchange` | Microphysics liquid-ice exchange | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `micro_vap_ice_exchange` | Microphysics vapor-ice exchange | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `micro_vap_liq_exchange` | Microphysics vapor-liquid exchange | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `precip_liq_surf_mass_flux` | Precipitation liquid surface mass flux | P3 | `m/s` | `(time, ncol)` |
+| `precip_ice_surf_mass_flux` | Precipitation ice surface mass flux | P3 | `m/s` | `(time, ncol)` |
+| `precip_total_surf_mass_flux`| Precipitation total surface mass flux | P3 | `m/s` | `(time, ncol)` |
+| `rad_heating_pdel` | Radiative heating | RRTMGP | `(Pa*K)/s` | `(time, ncol, lev)` |
+| `sfc_flux_lw_dn` | Surface longwave downward flux | RRTMGP | `W/m2` | `(time, ncol)` |
+| `sfc_flux_sw_net` | Surface shortwave net flux | RRTMGP | `W/m2` | `(time, ncol)` |
+| `ShortwaveCloudForcing` | Shortwave cloud forcing | RRTMGP | `W/m2` | `(time, ncol)` |
+| `LongwaveCloudForcing` | Longwave cloud forcing | RRTMGP | `W/m2` | `(time, ncol)` |
+| `SW_flux_up_at_model_top` | Upward SW flux at model top | RRTMGP | `W/m2` | `(time, ncol)` |
+| `SW_flux_dn_at_model_top` | Downward SW flux at model top | RRTMGP | `W/m2` | `(time, ncol)` |
+| `LW_flux_up_at_model_top` | Upward LW flux at model top | RRTMGP | `W/m2` | `(time, ncol)` |
+| `SW_flux_dn_at_model_bot` | Downward SW flux at model bottom | RRTMGP | `W/m2` | `(time, ncol)` |
+| `SW_flux_up_at_model_bot` | Upward SW flux at model bottom | RRTMGP | `W/m2` | `(time, ncol)` |
+| `LW_flux_dn_at_model_bot` | Downward LW flux at model bottom | RRTMGP | `W/m2` | `(time, ncol)` |
+| `LW_flux_up_at_model_bot` | Upward LW flux at model bottom | RRTMGP | `W/m2` | `(time, ncol)` |
+| `*_clrsky_*` | Clear-sky equivalents of the above fluxes | RRTMGP | `W/m2` | `(time, ncol)` |
+| `ZonalVapFlux` | Zonal vapor flux | Diagnostics | `(kg/m)/s` | `(time, ncol)` |
+| `MeridionalVapFlux` | Meridional vapor flux | Diagnostics | `(kg/m)/s` | `(time, ncol)` |
+| `surface_upward_latent_heat_flux` | Surface upward latent heat flux | Coupler | `W/m2` | `(time, ncol)` |
+| `surf_mom_flux` | Surface momentum flux | Coupler | `N/(m^2)` | `(time, ncol, dim2)` |
+| `surf_sens_flux` | Surface sensible heat flux | Coupler | `W/(m^2)` | `(time, ncol)` |
+| `surf_evap` | Surface evaporation | Coupler | `(kg/(m^2))/s` | `(time, ncol)` |
+| `shoc_T_mid_tend` | Temperature tendency from SHOC | SHOC | `K/s` | `(time, ncol, lev)` |
+| `p3_T_mid_tend` | Temperature tendency from P3 | P3 | `K/s` | `(time, ncol, lev)` |
+| `rrtmgp_T_mid_tend` | Temperature tendency from RRTMGP | RRTMGP | `K/s` | `(time, ncol, lev)` |
+| `homme_T_mid_tend` | Temperature tendency from HOMME | HOMME | `K/s` | `(time, ncol, lev)` |
+| `shoc_qv_tend` | Water vapor tendency from SHOC | SHOC | `(kg/kg)/s` | `(time, ncol, lev)` |
+| `p3_qv_tend` | Water vapor tendency from P3 | P3 | `(kg/kg)/s` | `(time, ncol, lev)` |
+| `homme_qv_tend` | Water vapor tendency from HOMME | HOMME | `(kg/kg)/s` | `(time, ncol, lev)` |
+| `PotentialTemperature_at_700hPa` | Potential temperature at 700 hPa | Diagnostics | `K` | `(time, ncol)` |
+| `PotentialTemperature_at_1000hPa`| Potential temperature at 1000 hPa | Diagnostics | `K` | `(time, ncol)` |
+| `omega_at_500hPa` | Vertical pressure velocity at 500 hPa | Diagnostics | `Pa/s` | `(time, ncol)` |
+| `RelativeHumidity_at_700hPa` | Relative humidity at 700 hPa | Diagnostics | `1` | `(time, ncol)` |
 
 #### 1-Hourly Instantaneous Fields
 
@@ -119,47 +119,47 @@ Source: `scream_test9_output_inst_1hour.yaml`
 
 *(Note: skips $t_0$ output)*
 
-| Variable | Description | Source | Units |
-|----------|-------------|--------|-------|
-| `z_mid` | Height at layer midpoints | Dynamics | `m` |
-| `p_mid` | Pressure at layer midpoints | Dynamics | `Pa` |
-| `ps` | Surface pressure | HOMME | `Pa` |
-| `SeaLevelPressure` | Sea-level pressure | Diagnostics | `Pa` |
-| `omega` | Vertical pressure velocity | HOMME | `Pa/s` |
-| `U` | Zonal wind | SHOC / HOMME | `m/s` |
-| `V` | Meridional wind | SHOC / HOMME | `m/s` |
-| `T_mid` | Air temperature at layer midpoints | SHOC / P3 / RRTMGP / HOMME | `K` |
-| `pbl_height` | Planetary boundary layer height | SHOC | `m` |
-| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC | `(m^2)/s` |
-| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC | `K*(m/s)` |
-| `tke` | Turbulent kinetic energy | SHOC | `(m^2)/(s^2)` |
-| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC | `(kg/kg)^2` |
-| `cldfrac_liq` | Liquid cloud fraction | SHOC | `1` |
-| `cldfrac_ice` | Ice cloud fraction | CLD | `1` |
-| `cldfrac_tot_for_analysis` | Total cloud fraction (for analysis) | CLD | `1` |
-| `qc` | Cloud liquid water mixing ratio | SHOC / P3 | `kg/kg` |
-| `qv` | Water vapour mixing ratio | SHOC / P3 | `kg/kg` |
-| `nc` | Cloud droplet number concentration | P3 | `1/kg` |
-| `ni` | Cloud ice number concentration | P3 | `1/kg` |
-| `nr` | Rain drop number concentration | P3 | `1/kg` |
-| `qi` | Cloud ice mixing ratio | P3 | `kg/kg` |
-| `qm` | Ice rime mass mixing ratio | P3 | `kg/kg` |
-| `qr` | Rain mixing ratio | P3 | `kg/kg` |
-| `bm` | Ice rime volume mixing ratio | P3 | `1/kg` |
-| `diag_equiv_reflectivity` | Equivalent radar reflectivity | Diagnostics / P3 | `1` |
-| `LiqWaterPath` | Vertically integrated liquid water path | RRTMGP | `kg/(m^2)` |
-| `IceWaterPath` | Vertically integrated ice water path | RRTMGP | `kg/(m^2)` |
-| `RainWaterPath` | Vertically integrated rain water path | RRTMGP | `kg/(m^2)` |
-| `RimeWaterPath` | Vertically integrated rime water path | RRTMGP | `kg/(m^2)` |
-| `VapWaterPath` | Vertically integrated water vapour path | RRTMGP | `kg/(m^2)` |
-| `PotentialTemperature` | Potential temperature | Diagnostics | `K` |
-| `LiqPotentialTemperature` | Liquid-water potential temperature | Diagnostics | `K` |
-| `DryStaticEnergy` | Dry static energy | Diagnostics | `(m^2)/(s^2)` |
-| `RelativeHumidity` | Relative humidity | Diagnostics | `1` |
-| `surf_radiative_T` | Surface radiative temperature | Coupler | `K` |
-| `T_2m` | 2-m air temperature | Coupler | `K` |
-| `qv_2m` | 2-m water vapour mixing ratio | Coupler | `kg/kg` |
-| `wind_speed_10m` | 10-m wind speed | Coupler | `m/s` |
+| Variable | Description | Source | Units | Dimensions |
+|----------|-------------|--------|-------|------------|
+| `z_mid` | Height at layer midpoints | Dynamics | `m` | `(time, ncol, lev)` |
+| `p_mid` | Pressure at layer midpoints | Dynamics | `Pa` | `(time, ncol, lev)` |
+| `ps` | Surface pressure | HOMME | `Pa` | `(time, ncol)` |
+| `SeaLevelPressure` | Sea-level pressure | Diagnostics | `Pa` | `(time, ncol)` |
+| `omega` | Vertical pressure velocity | HOMME | `Pa/s` | `(time, ncol, lev)` |
+| `U` | Zonal wind | SHOC / HOMME | `m/s` | `(time, ncol, lev)` |
+| `V` | Meridional wind | SHOC / HOMME | `m/s` | `(time, ncol, lev)` |
+| `T_mid` | Air temperature at layer midpoints | SHOC / P3 / RRTMGP / HOMME | `K` | `(time, ncol, lev)` |
+| `pbl_height` | Planetary boundary layer height | SHOC | `m` | `(time, ncol)` |
+| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC | `(m^2)/s` | `(time, ncol, lev)` |
+| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC | `K*(m/s)` | `(time, ncol, lev)` |
+| `tke` | Turbulent kinetic energy | SHOC | `(m^2)/(s^2)` | `(time, ncol, lev)` |
+| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC | `(kg/kg)^2` | `(time, ncol, lev)` |
+| `cldfrac_liq` | Liquid cloud fraction | SHOC | `1` | `(time, ncol, lev)` |
+| `cldfrac_ice` | Ice cloud fraction | CLD | `1` | `(time, ncol, lev)` |
+| `cldfrac_tot_for_analysis` | Total cloud fraction (for analysis) | CLD | `1` | `(time, ncol, lev)` |
+| `qc` | Cloud liquid water mixing ratio | SHOC / P3 | `kg/kg` | `(time, ncol, lev)` |
+| `qv` | Water vapour mixing ratio | SHOC / P3 | `kg/kg` | `(time, ncol, lev)` |
+| `nc` | Cloud droplet number concentration | P3 | `1/kg` | `(time, ncol, lev)` |
+| `ni` | Cloud ice number concentration | P3 | `1/kg` | `(time, ncol, lev)` |
+| `nr` | Rain drop number concentration | P3 | `1/kg` | `(time, ncol, lev)` |
+| `qi` | Cloud ice mixing ratio | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `qm` | Ice rime mass mixing ratio | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `qr` | Rain mixing ratio | P3 | `kg/kg` | `(time, ncol, lev)` |
+| `bm` | Ice rime volume mixing ratio | P3 | `1/kg` | `(time, ncol, lev)` |
+| `diag_equiv_reflectivity` | Equivalent radar reflectivity | Diagnostics / P3 | `1` | `(time, ncol, lev)` |
+| `LiqWaterPath` | Vertically integrated liquid water path | RRTMGP | `kg/(m^2)` | `(time, ncol)` |
+| `IceWaterPath` | Vertically integrated ice water path | RRTMGP | `kg/(m^2)` | `(time, ncol)` |
+| `RainWaterPath` | Vertically integrated rain water path | RRTMGP | `kg/(m^2)` | `(time, ncol)` |
+| `RimeWaterPath` | Vertically integrated rime water path | RRTMGP | `kg/(m^2)` | `(time, ncol)` |
+| `VapWaterPath` | Vertically integrated water vapour path | RRTMGP | `kg/(m^2)` | `(time, ncol)` |
+| `PotentialTemperature` | Potential temperature | Diagnostics | `K` | `(time, ncol, lev)` |
+| `LiqPotentialTemperature` | Liquid-water potential temperature | Diagnostics | `K` | `(time, ncol, lev)` |
+| `DryStaticEnergy` | Dry static energy | Diagnostics | `(m^2)/(s^2)` | `(time, ncol, lev)` |
+| `RelativeHumidity` | Relative humidity | Diagnostics | `1` | `(time, ncol, lev)` |
+| `surf_radiative_T` | Surface radiative temperature | Coupler | `K` | `(time, ncol)` |
+| `T_2m` | 2-m air temperature | Coupler | `K` | `(time, ncol)` |
+| `qv_2m` | 2-m water vapour mixing ratio | Coupler | `kg/kg` | `(time, ncol)` |
+| `wind_speed_10m` | 10-m wind speed | Coupler | `m/s` | `(time, ncol)` |
 
 ### Processed and Regridded variables for MCS tracking and spatial anlyses
 
