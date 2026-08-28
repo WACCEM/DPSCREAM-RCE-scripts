@@ -36,8 +36,8 @@ icase   = "RCE01_dx1km_600x600km"
 # toa_sw_up, visibility, and height-level fields (e.g., T_100.0, qv_500.0, ...)
 varname = "imse"
 
-in_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/simlinks/fields2d"
-out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/havg"
+in_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/simlinks/fields2d"
+out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/havg"
 
 # File minute pattern for specifying frequency.
 # Use "00m" for hourly data (only read files on the hour).

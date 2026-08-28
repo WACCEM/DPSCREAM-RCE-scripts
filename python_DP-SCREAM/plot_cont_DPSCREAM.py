@@ -45,7 +45,8 @@ sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
 from ks_pkg.plot_settings import init_style
 init_style()
 
-from dp_scream_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
+from rce_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
+from rce_tools.rce_utils import days_since_jan1_to_month_day
 
 _ffmpeg = _find_working_ffmpeg()
 if _ffmpeg:
@@ -54,29 +55,6 @@ if _ffmpeg:
 else:
     print("WARNING: no h264-capable ffmpeg found; animation will be saved as GIF.")
     print("  To fix: conda install -c conda-forge ffmpeg")
-
-def days_since_jan1_to_month_day(days_since_jan1, iyear, calendar="noleap"):
-    """
-    Returns the month and day (as integers) given the number of days since Jan 1st.
-    For days_since_jan1=0, returns (1, 1) i.e., Jan 01.
-    """
-    import datetime
-    if calendar == "noleap":
-        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        rem = int(days_since_jan1)
-        m = 1
-        for dim in days_in_month:
-            if rem < dim:
-                d = rem + 1
-                return m, d
-            rem -= dim
-            m += 1
-        raise ValueError("Days exceeded year length")
-    elif calendar == "standard":
-        dt = datetime.datetime(iyear, 1, 1) + datetime.timedelta(days=int(days_since_jan1))
-        return dt.month, dt.day
-    else:
-        raise ValueError(f"Unknown calendar: {calendar}")
 
 def _update(frame_idx):
     """Update the plot for one animation frame."""

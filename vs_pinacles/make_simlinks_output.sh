@@ -2,16 +2,16 @@
 set -e
 #create symlinks for output files across different slurm jobs, since PINACLES creates new directories for each job
 
-icase="RCE02_dx1km_600x600km"
-icase_prefix="RCE02_dx1km_600x600km"
+icase="RCE03_150x150_1km"
+icase_prefix=${icase}
 tgtoutput="fields2d"
 
-indir_root="/pscratch/sd/k/ksa/simulation/PINACLES/rce/1km/${icase}"
+indir_root="/pscratch/sd/k/ksa/simulation/PINACLES/rce/test_runs2/${icase}"
 #indir_root="/pscratch/sd/k/ksa/simulation/PINACLES/rce/test_runs2"
 #indir_root="/pscratch/sd/p/paccini/test_runs"
-#indir_root="/pscratch/sd/w/wcmca1/PINACLES/rce/${icase}"
+#indir_root="/pscratch/sd/w/wcmca1/PINACLES/${icase}"
 
-outdir="/pscratch/sd/w/wcmca1/PINACLES/rce/${icase}/simlinks/${tgtoutput}"
+outdir="/pscratch/sd/w/wcmca1/PINACLES/${icase}/simlinks/${tgtoutput}"
 
 mkdir -p ${outdir}
 

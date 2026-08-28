@@ -46,7 +46,7 @@ sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
 from ks_pkg.plot_settings import init_style
 init_style()
 
-from dp_scream_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
+from rce_tools.plotting import _find_working_ffmpeg, get_2d_slice, get_2d_timemean, noleap_days_since, plot_2d_field
 
 # %%
 #local functions
@@ -91,7 +91,7 @@ varname    = "toa_lw_up"
 crange_name = None
 
 # Input directory containing the daily files
-in_dir = (f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw")
+in_dir = (f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/cat_raw")
 
 # Day range to load (inclusive)
 day_start = 0
@@ -116,7 +116,7 @@ t0_date = pd.Timestamp("2000-01-01")
 # ---------------------------------------------------------------------------
 # Save flags and output paths
 # ---------------------------------------------------------------------------
-out_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/plots"
+out_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/plots"
 dpi = 150   # figure resolution for raster saves
 
 #variable setting

@@ -29,10 +29,10 @@ import h5py
 icase   = "RCE01_dx1km_600x600km"
 
 in_dir  = (
-    f"/pscratch/sd/w/wcmca1/PINACLES/rce/"
+    f"/pscratch/sd/w/wcmca1/PINACLES/"
     f"{icase}/simlinks/fields2d"
 )
-out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/mcstrack"
+out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/mcstrack"
 
 # File minute pattern for specifying frequency.
 # Use "*m" to read all available frequencies (e.g., hourly).
