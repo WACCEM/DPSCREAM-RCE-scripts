@@ -3,7 +3,7 @@
 # =============================================================================
 
 # Ignored project subdirectories
-theory/
+dpscream_doc/
 scmlib/
 input/
 python_DP-SCREAM/testfigs/

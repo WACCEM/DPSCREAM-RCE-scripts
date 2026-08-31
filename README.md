@@ -44,7 +44,7 @@ DP-SCREAM/
 │   └── *.py / *.ipynb
 ├── run_scripts/          # Bash job-submission scripts for HPC
 │   └── yaml_files/       # SCREAM output YAML configuration files
-├── theory/               # (external / not tracked) Notes and LaTeX write-ups
+├── dpscream_doc/           # (external / not tracked) Notes and LaTeX write-ups
 └── scmlib/               # (external / not tracked) SCM/DP utility library
 ```
 
