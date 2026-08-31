@@ -33,15 +33,21 @@ from rce_tools.rce_utils import days_since_jan1_to_month_day, month_day_to_days_
 # ==============================================================================
 
 # Select model: 'DP-SCREAM' or 'PINACLES'
-MODEL = 'DP-SCREAM'
-case_name = "dx1km_L150km_RCE02_gpu"
+# MODEL = 'DP-SCREAM'
+# case_name = "dx1km_L150km_RCE02_gpu"
 
-#MODEL = 'PINACLES'
-#case_name = "RCE03_150x150_1km"
+MODEL = 'PINACLES'
+case_name = "RCE03_150x150_1km"
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
-ts_end   = "2000-04-30"
+ts_end   = "2000-04-10"
+
+# January (31 days): Days 0 to 30
+# February (28 days): Days 31 to 58
+# March (31 days): Days 59 to 89
+# April (30 days): Days 90 to 119 (e.g. Day 99 is April 10th)
+# May (31 days): Days 120 to 150
 
 # -- For PINACLES --
 # Integer simulation days (0-based) will be calculated automatically 
