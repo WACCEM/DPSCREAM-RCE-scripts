@@ -191,3 +191,6 @@ File Name Format: `${CASE}.mcstrack.YYYY-MM-DD_HHMM.nc`
 | `rain_rate`      | `precip_total_surf_mass_flux`| mm/h  |
 | `toa_lw_up`      | `LW_flux_up_at_model_top`   | W/m2  |
 | `ref`            | `diag_equiv_reflectivity_max`| -     |
+
+* unlike the standard convention, the OLR output from this simulation is hourly average. Subsequent simulations witll write instantanous OLR output.
+* the x- and y-coordinate units are meters, not lat/lon degrees.

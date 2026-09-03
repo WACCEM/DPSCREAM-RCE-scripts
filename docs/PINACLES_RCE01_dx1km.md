@@ -115,3 +115,5 @@ File Name Format: `${CASE}.mcstrack.YYYY-MM-DD_HHMM.nc`
 | `rain_rate`      | Calculated from `RAINNC`   | mm/h  |
 | `toa_lw_up`      | `LW_UP_TOA` / `toa_lw_up`  | W/m2  |
 | `ref`            | `ref` / `REFL_10CM`        | -     |
+
+* the x- and y-coordinate units are meters, not lat/lon degrees.
