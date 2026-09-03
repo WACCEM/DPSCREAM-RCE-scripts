@@ -88,3 +88,17 @@ convective_mask = np.random.choice([0, 1], size=(100, 100), p=[0.9, 0.1])
 organization_results = run_metrics(convective_mask)
 print(organization_results)
 ```
+
+## Pre-processing
+
+### PINACLES
+1. `vs_pinacles/make_simlinks_output.sh`
+    - Organize output files scattered across subdirectoties into one directory in the collaboration account scratch space
+2. `vs_pinacles/python_PINACLES/concat_2d.py`
+    - Concatenate hourly outputs to daily files for a specified variable (toa_lw_up)
+3. `organization_indices/concat_dailyfiles.py`
+    - Further concatenate daily files (with hourly outputs) to multi-day single file covering the analysis period (for the efficinecy of the next script)
+4. `organization_indices/compute_orgind_generic.py`
+    - calculate 11 indices for convection organization
+
+### DP-SCREAM

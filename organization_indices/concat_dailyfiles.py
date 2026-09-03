@@ -15,7 +15,7 @@
 #   python concat_dailyfiles.py
 #
 # ==============================================================================
-
+# %%
 import sys
 import os
 import glob
@@ -28,20 +28,23 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rce_tools.rce_utils import days_since_jan1_to_month_day, month_day_to_days_since_jan1
 
-# ==============================================================================
+# %%
 # 1. USER CONFIGURATION
 # ==============================================================================
 
 # Select model: 'DP-SCREAM' or 'PINACLES'
 # MODEL = 'DP-SCREAM'
-# case_name = "dx1km_L150km_RCE02_gpu"
+# case_name = "RCE02_dx1km_gpu"
+# igrid = "PINACLES_YX_dx1km_600x600km"
+# # Date-range timestamps (inclusive, YYYY-MM-DD) for DP-SCREAM
+# ts_start = "2000-01-01"
+# ts_end   = "2000-03-15"
 
 MODEL = 'PINACLES'
-case_name = "RCE03_150x150_1km"
-
-# Date-range timestamps (inclusive, YYYY-MM-DD)
-ts_start = "2000-01-01"
-ts_end   = "2000-04-10"
+case_name = "RCE01_dx1km_600x600km"
+#Simulation days (0-based) for PINACLES
+day_start = 0
+day_end   = 44
 
 # January (31 days): Days 0 to 30
 # February (28 days): Days 31 to 58
@@ -50,9 +53,16 @@ ts_end   = "2000-04-10"
 # May (31 days): Days 120 to 150
 
 # -- For PINACLES --
-# Integer simulation days (0-based) will be calculated automatically 
-# from ts_start and ts_end using a baseline year.
+# String date variables ts_start and ts_end will be calculated automatically 
+# from day_start and day_end using a baseline year.
 baseline_year = 2000
+
+if MODEL == 'PINACLES':
+    m_start, d_start = days_since_jan1_to_month_day(day_start, baseline_year)
+    m_end, d_end = days_since_jan1_to_month_day(day_end, baseline_year)
+    ts_start = f"{baseline_year:04d}-{m_start:02d}-{d_start:02d}"
+    ts_end = f"{baseline_year:04d}-{m_end:02d}-{d_end:02d}"
+
 
 # ==============================================================================
 # 2. MODEL-SPECIFIC SETTINGS
@@ -61,12 +71,12 @@ baseline_year = 2000
 if MODEL == 'DP-SCREAM':
     
     var_name  = "LW_flux_up_at_model_top"
-    
+    output_type = "AVERAGE"
     in_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/remapped/"
     out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/org_ind/"
     
     # File pattern expects {date} to be replaced by YYYY-MM-DD
-    file_pattern = f"{case_name}.{var_name}.INSTANT.nhours_x1.PINACLES_YX_dx1km_150x150km*{'{date}'}*nc"
+    file_pattern = f"{case_name}.{var_name}.{output_type}.nhours_x1.{igrid}*{'{date}'}*nc"
 
 elif MODEL == 'PINACLES':
     
@@ -114,17 +124,10 @@ def main():
         out_filename = f"{case_name}_{var_name}_{ts_start}_to_{ts_end}.nc"
                 
     elif MODEL == 'PINACLES':
+        print(f"Day range  : day {day_start} to day {day_end}")
         print(f"Date range : {ts_start} to {ts_end}")
         
-        start_date_obj = pd.to_datetime(ts_start)
-        end_date_obj   = pd.to_datetime(ts_end)
-        
-        pinacles_day_start = month_day_to_days_since_jan1(start_date_obj.month, start_date_obj.day, baseline_year)
-        pinacles_day_end   = month_day_to_days_since_jan1(end_date_obj.month, end_date_obj.day, baseline_year)
-        
-        print(f"Day range  : day {pinacles_day_start} to day {pinacles_day_end}")
-        
-        for day in range(pinacles_day_start, pinacles_day_end + 1):
+        for day in range(day_start, day_end + 1):
             date_str = f"day{day:02d}"
             search_pattern = os.path.join(in_dir, file_pattern.format(date=date_str))
             matched_files = glob.glob(search_pattern)

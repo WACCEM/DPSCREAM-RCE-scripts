@@ -16,7 +16,7 @@
 SIMULATION_TYPE = 'PINACLES'  # Options: 'PINACLES', 'DP-SCREAM'
 OLR_VAR_NAME = 'toa_lw_up' 
 
-CASE_NAME = "RCE03_150x150_1km"
+CASE_NAME = "RCE06_dx1km_150x150km"
 
 DO_PLOT = False
 
@@ -27,7 +27,10 @@ if(CASE_NAME == 'dx1km_L150km_RCE01_gpu') or (CASE_NAME == 'dx1km_L150km_RCE02_g
     date_range = '2000-01-01_to_2000-04-30'
 elif(CASE_NAME == 'RCE03_150x150_1km' ):
     date_range = '2000-01-01_to_2000-04-10'
-
+elif(CASE_NAME == 'RCE05_dx1km_150x150km' ):
+    date_range = '2000-01-01_to_2000-02-25'
+elif(CASE_NAME == 'RCE06_dx1km_150x150km' ):
+    date_range = '2000-01-01_to_2000-02-24'
 
 INPUT_FILE = f'{CASE_NAME}_{OLR_VAR_NAME}_{date_range}.nc'
 
