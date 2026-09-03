@@ -79,11 +79,12 @@ def Lorg(pairs_of_objects, l_max = 2, domain_length=1):
     Nbins = bins.shape[0]
 
 
-    size_tile  = np.tile(size, (Nbins,1,1))
-    values_tile = np.rollaxis(np.tile(bins, (number_of_objects,number_of_objects,1)), 2)
+    size_tile = None  # Removed to save memory
+    values_tile = None
 
-    hist = np.where(size_tile<=values_tile,1,0)
-    cum_hist = np.sum(hist, axis=2) - 1 # -1 to remove the auto-distance
+    cum_hist = np.zeros((Nbins, number_of_objects))
+    for b_idx in range(Nbins):
+        cum_hist[b_idx, :] = np.sum(size <= bins[b_idx], axis=1) - 1 # -1 to remove the auto-distance
 
     # Compute weights with added checks
     centroids_x_tile = np.tile(centroids_x, (Nbins,1))

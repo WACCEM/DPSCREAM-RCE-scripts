@@ -33,18 +33,18 @@ from rce_tools.rce_utils import days_since_jan1_to_month_day, month_day_to_days_
 # ==============================================================================
 
 # Select model: 'DP-SCREAM' or 'PINACLES'
-# MODEL = 'DP-SCREAM'
-# case_name = "RCE02_dx1km_gpu"
-# igrid = "PINACLES_YX_dx1km_600x600km"
-# # Date-range timestamps (inclusive, YYYY-MM-DD) for DP-SCREAM
-# ts_start = "2000-01-01"
-# ts_end   = "2000-03-15"
+MODEL = 'DP-SCREAM'
+case_name = "dx1km_L600km_RCE03_gpu"
+igrid = "PINACLES_YX_dx1km_600x600km"
+# Date-range timestamps (inclusive, YYYY-MM-DD) for DP-SCREAM
+ts_start = "2000-01-01"
+ts_end   = "2000-03-01"
 
-MODEL = 'PINACLES'
-case_name = "RCE01_dx1km_600x600km"
-#Simulation days (0-based) for PINACLES
-day_start = 0
-day_end   = 44
+# MODEL = 'PINACLES'
+# case_name = "RCE01_dx1km_600x600km"
+# #Simulation days (0-based) for PINACLES
+# day_start = 0
+# day_end   = 44
 
 # January (31 days): Days 0 to 30
 # February (28 days): Days 31 to 58
@@ -71,7 +71,7 @@ if MODEL == 'PINACLES':
 if MODEL == 'DP-SCREAM':
     
     var_name  = "LW_flux_up_at_model_top"
-    output_type = "AVERAGE"
+    output_type = "INSTANT"
     in_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/remapped/"
     out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/org_ind/"
     

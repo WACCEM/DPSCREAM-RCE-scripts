@@ -28,30 +28,50 @@ import bottleneck as bn
 # ==============================================================================
 
 case_info = {
-    "dx1km_L150km_RCE01_gpu": {
+    # "dx1km_L150km_RCE01_gpu": {
+    #     "model": "DP-SCREAM",
+    #     "date_range": "2000-01-01_to_2000-04-30",
+    #     "desc": "RCEMIP IC",
+    # },
+    # "dx1km_L150km_RCE02_gpu": {
+    #     "model": "DP-SCREAM",
+    #     "date_range": "2000-01-01_to_2000-04-30",
+    #     "desc": "DP default IC",
+    # },
+    "RCE02_dx1km_gpu": {
         "model": "DP-SCREAM",
-        "date_range": "2000-01-01_to_2000-04-30",
-        "desc": "RCEMIP IC",
+        "date_range": "2000-01-01_to_2000-03-15",
+        "desc": "DP EQ IC",
     },
-    "dx1km_L150km_RCE02_gpu": {
+    "dx1km_L600km_RCE03_gpu": {
         "model": "DP-SCREAM",
-        "date_range": "2000-01-01_to_2000-04-30",
+        "date_range": "2000-01-01_to_2000-03-01",
         "desc": "DP default IC",
     },
-    "RCE03_150x150_1km": {
+    # "RCE03_150x150_1km": {
+    #     "model": "PINACLES",
+    #     "date_range": "2000-01-01_to_2000-04-10",
+    #     "desc": "DP EQ IC"
+    # },
+    # "RCE05_dx1km_150x150km": {
+    #     "model": "PINACLES",
+    #     "date_range": "2000-01-01_to_2000-02-25",
+    #     "desc": "PINACLES EQ IC"
+    # },
+    # "RCE06_dx1km_150x150km": {
+    #     "model": "PINACLES",
+    #     "date_range": "2000-01-01_to_2000-02-24",
+    #     "desc": "RCEMIP IC"
+    # },
+    "RCE00_dx1km_600x600km": {
         "model": "PINACLES",
-        "date_range": "2000-01-01_to_2000-04-10",
-        "desc": "DP EQ IC"
-    },
-    "RCE05_dx1km_150x150km": {
-        "model": "PINACLES",
-        "date_range": "2000-01-01_to_2000-02-25",
-        "desc": "PINACLES EQ IC"
-    },
-    "RCE06_dx1km_150x150km": {
-        "model": "PINACLES",
-        "date_range": "2000-01-01_to_2000-02-24",
+        "date_range": "2000-01-01_to_2000-03-01",
         "desc": "RCEMIP IC"
+    },
+    "RCE01_dx1km_600x600km": {
+        "model": "PINACLES",
+        "date_range": "2000-01-01_to_2000-02-14",
+        "desc": "PINACLES EQ IC"
     },
 }
 
@@ -95,9 +115,7 @@ def get_case_info(case_name):
             nc_file = matches[0]
 
     # Expected Pickle file path
-    domain = '150x150'
-    res = '1km'
-    pkl_file = f'{in_dir}/df_{sim_type}_{domain}_{res}_periodic_hourly.pkl'
+    pkl_file = f'/global/cfs/cdirs/m1867/RCE/org_ind/df_{sim_type}_{case_name}_periodic_hourly.pkl'
     
     return sim_type, olr_var, nc_file, pkl_file
 
@@ -209,7 +227,7 @@ for case_name in case_list:
 # --------------------------------------------------------------------------
 # The organization index to plot in the time series comparison
 # Typical options: 'Iorg', 'SCAI', 'MCAI', 'COP', 'ROME', 'Lorg'
-TARGET_INDEX = 'Iorg'
+TARGET_INDEX = 'ROME'
 print(f"\nGenerating time series plot for {TARGET_INDEX}...")
 SAVE_PLOTS = False
 
@@ -233,7 +251,7 @@ for i, case_name in enumerate(case_list):
                     color=colors[i % len(colors)], 
                     label=f"{case_info[case_name]['model']} {case_info[case_name]['desc']}", 
                     alpha=0.8, 
-                    linewidth=1.5
+                    linewidth=3
                 )
             else:
                 print(f"  [WARNING] Index '{TARGET_INDEX}' not found in {pkl_file}")

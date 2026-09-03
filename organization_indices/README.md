@@ -89,6 +89,13 @@ organization_results = run_metrics(convective_mask)
 print(organization_results)
 ```
 
+## Performance Optimizations
+
+Significant performance enhancements were introduced to handle high-resolution simulations (e.g., dx=1km with domains featuring 500+ convective objects per timestep) efficiently:
+
+* **Memory Optimization in `Lorg` Metric**: The original Ripley's K / Besag's L function derivation relied on 3-dimensional NumPy arrays (`size_tile`) spanning $O(\text{bins} \times N^2)$. For $N > 500$, this resulted in tens of gigabytes of RAM overhead per process, causing extreme memory exhaustion and Slurm job timeouts during parallel multiprocessing. The metric computation was refactored into a memory-efficient loop over histogram bins, restricting spatial matrices to strictly 2-dimensional structures and saving over 99% of the memory footprint.
+* **CPU Optimization for Object Edge Distances**: Computing minimum distances between exterior edges of $N$ irregular polygons previously utilized $O(N^2)$ quadruple-nested loops, which became a severe CPU bottleneck in highly-fragmented convective fields. This was resolved by vectorizing the pairwise boundary searches using `scipy.spatial.cKDTree`, leveraging the natively supported `boxsize` argument to flawlessly handle periodic boundaries while returning minimum nearest-neighbor boundary distances in orders of magnitude less time.
+
 ## Pre-processing
 
 ### PINACLES

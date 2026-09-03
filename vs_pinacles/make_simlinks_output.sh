@@ -2,7 +2,7 @@
 set -e
 #create symlinks for output files across different slurm jobs, since PINACLES creates new directories for each job
 
-icase="RCE03_150x150_1km"
+icase="RCE06_dx1km_150x150km"
 icase_prefix=${icase}
 tgtoutput="fields2d"
 

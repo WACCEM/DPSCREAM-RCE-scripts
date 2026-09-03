@@ -19,7 +19,7 @@ import netCDF4 as nc
 
 # %%
 # Configurations
-casename = "RCE09_dx3km_gpu"
+casename = "dx1km_L150km_RCE01_gpu"
 orig_ic_file = "/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE_300K_iopfile_4scam.nc"
 new_ic_file = f"/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/{casename}_equilibrium_300K_profile.nc"
 hist_dir = f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{casename}/run"

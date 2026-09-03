@@ -2,6 +2,7 @@ import numpy as np
 import skimage.measure as skm
 import shapely.geometry as spg
 from scipy import ndimage
+from scipy.spatial import cKDTree
 
 
 def wrap_distance(coord1, coord2, domain_length):
@@ -98,7 +99,7 @@ class make_objects :
         self.area_spg  =   np.sum([p.area+0.5 for p in self.polynoms]) # +0.5 is needed because of the shape of spg.Polygon
         self.areas     = np.array([r.area     for r in self.regions])  # I will use these in the metrics
         self.centroids = np.array([r.centroid for r in self.regions])
-        self.diameters = np.array([r.equivalent_diameter     for r in self.regions])
+        self.diameters = np.array([r.equivalent_diameter_area     for r in self.regions])
         #self.perimeters= np.array([p.length for p in self.polynoms]) # +0.5 is needed because of the shape of spg.Polygon
         self.perimeter = np.array(perimeter_)
 
@@ -147,31 +148,37 @@ class make_pairs:
     def compute_distance_edges (self, domain_length_x, domain_length_y) :
         """
         Compute minimum distance between object edges with periodic boundaries.
-        FIXED: Corrected coordinate ordering (Y=rows, X=columns).
+        FIXED: Corrected coordinate ordering (Y=rows, X=columns) and optimized with cKDTree.
         """
         n_objects = self.number_of_objects
         distance_edges = np.empty((self.number_of_objects, self.number_of_objects))
+        
+        if n_objects > 0:
+            # Pre-build kdtree for all objects
+            trees = []
+            for n in range(n_objects):
+                poly_n = self.objects.polynoms[n]
+                coords_n = np.array(poly_n.exterior.coords)
+                # Keep coordinates strictly inside the periodic box for cKDTree
+                coords_box = np.copy(coords_n)
+                coords_box[:, 0] %= domain_length_y
+                coords_box[:, 1] %= domain_length_x
+                trees.append(cKDTree(coords_box, boxsize=[domain_length_y, domain_length_x]))
 
-        for n in range(n_objects):
-            poly_n = self.objects.polynoms[n]
-            coords_n = np.array(poly_n.exterior.coords)
+            for n in range(n_objects):
+                poly_n = self.objects.polynoms[n]
+                coords_n = np.array(poly_n.exterior.coords)
+                coords_n_box = np.copy(coords_n)
+                coords_n_box[:, 0] %= domain_length_y
+                coords_n_box[:, 1] %= domain_length_x
 
-            for m in range(n+1, n_objects):
-                poly_m = self.objects.polynoms[m]
-                coords_m = np.array(poly_m.exterior.coords)
+                for m in range(n+1, n_objects):
+                    # Query KDTree for nearest neighbor
+                    dists, _ = trees[m].query(coords_n_box)
+                    min_dist = np.min(dists)
 
-                min_dist = np.inf
-                for coord1 in coords_n:
-                    # FIXED: coord1[0] is Y (row), coord1[1] is X (column)
-                    # Use domain_length_y for Y distances, domain_length_x for X distances
-                    dists = np.sqrt(
-                        wrap_distance(coord1[0], coords_m[:, 0], domain_length_y)**2 +
-                        wrap_distance(coord1[1], coords_m[:, 1], domain_length_x)**2
-                    )
-                    min_dist = min(min_dist, np.min(dists))
-
-                distance_edges[n, m] = min_dist
-                distance_edges[m, n] = min_dist  # Ensure symmetry
+                    distance_edges[n, m] = min_dist
+                    distance_edges[m, n] = min_dist  # Ensure symmetry
 
         np.fill_diagonal(distance_edges, np.nan)
         self.distance_edges =  distance_edges

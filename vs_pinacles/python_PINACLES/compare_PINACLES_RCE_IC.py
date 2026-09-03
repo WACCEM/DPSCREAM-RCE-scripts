@@ -25,33 +25,33 @@ RD = np.double(287.15)  # Dry air gas constant
 #dot-dashed for unknown source (SCREAM default IC)
 #greenish colors for PINACLES, blueish colors for DP-SCREAM
 profiles = [
-    {
-        'name': 'scream',
-        'path': '/global/cfs/cdirs/wcm_code/PINACLES/share/data/profile_from_SCREAM_linear.nc',
-        'label': 'SCREAM IC for PINACLES',
-        'color': 'gray',
-        'linestyle': '-.',
-        'is_scream_format': False,
-        'plot': False
-    },
+    # {
+    #     'name': 'scream',
+    #     'path': '/global/cfs/cdirs/wcm_code/PINACLES/share/data/profile_from_SCREAM_linear.nc',
+    #     'label': 'SCREAM IC for PINACLES',
+    #     'color': 'gray',
+    #     'linestyle': '-.',
+    #     'is_scream_format': False,
+    #     'plot': False
+    # },
     {
         'name': 'PIN150km_rce03_eq',
         'path': '/global/cfs/cdirs/wcm_code/PINACLES/share/data/profile_from_RCE03_150x150_1km.nc',
-        'label': 'PINACLES dx1km 150km EQ',
+        'label': 'PINACLES dx1km L150km EQ',
         'color': 'lightgreen',
         'linestyle': '-',
         'is_scream_format': False,
         'plot': True
     },
-    {
-        'name': 'PIN600km_rce00_eq',
-        'path': '/global/cfs/cdirs/wcm_code/PINACLES/share/data/profile_from_RCE00_dx1km_600x600.nc',
-        'label': 'PINACLES dx1km 600km EQ',
-        'color': 'g',
-        'linestyle': '-',
-        'is_scream_format': False,
-        'plot': True
-    },
+    # {
+    #     'name': 'PIN600km_rce00_eq',
+    #     'path': '/global/cfs/cdirs/wcm_code/PINACLES/share/data/profile_from_RCE00_dx1km_600x600.nc',
+    #     'label': 'PINACLES dx1km 600km EQ',
+    #     'color': 'g',
+    #     'linestyle': '-',
+    #     'is_scream_format': False,
+    #     'plot': True
+    # },
     {
         'name': 'DP_scam',
         'path': '/global/cfs/cdirs/e3sm/inputdata/atm/cam/scam/iop/RCE_300K_iopfile_4scam.nc',
@@ -64,30 +64,39 @@ profiles = [
     {
         'name': 'DPdx3km_eq',
         'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCE09_dx3km_gpu_equilibrium_300K_profile.nc',
-        'label': 'SCREAM dx3km 600km EQ',
+        'label': 'SCREAM dx3km L600km EQ',
         'color': 'blue',
         'linestyle': '-',
         'is_scream_format': True,
         'plot': True
     },
-    {
-        'name': 'PINrce03_DP',
-        'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/PINACLES_RCE03_150x150_1km_profile_4scam.nc',
-        'label': 'PINACLES dx1km 150km EQ for DP-SCREAM',
-        'color': 'lightgreen',
-        'linestyle': '-.',
+        {
+        'name': 'DPdx1km_L150km_eq',
+        'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/dx1km_L150km_RCE01_gpu_equilibrium_300K_profile.nc',
+        'label': 'SCREAM dx1km L150km EQ',
+        'color': 'violet',
+        'linestyle': '-',
         'is_scream_format': True,
         'plot': True
     },
-     {
-        'name': 'RCEMIP_DP',
-        'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCEMIP_analytical_profile_4scam.nc',
-        'label': 'RCEMIP IC for DP-SCREAM',
-        'color': 'yellow',
-        'linestyle': '--',
-        'is_scream_format': True,
-        'plot': False
-    },
+    # {
+    #     'name': 'PINrce03_DP',
+    #     'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/PINACLES_RCE03_150x150_1km_profile_4scam.nc',
+    #     'label': 'PINACLES dx1km 150km EQ for DP-SCREAM',
+    #     'color': 'lightgreen',
+    #     'linestyle': '-.',
+    #     'is_scream_format': True,
+    #     'plot': True
+    # },
+    #  {
+    #     'name': 'RCEMIP_DP',
+    #     'path': '/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM/input/RCEMIP_analytical_profile_4scam.nc',
+    #     'label': 'RCEMIP IC for DP-SCREAM',
+    #     'color': 'yellow',
+    #     'linestyle': '--',
+    #     'is_scream_format': True,
+    #     'plot': False
+    # },
 
 ]
 
@@ -157,26 +166,26 @@ fig, axes = plt.subplots(1, 3, figsize=(15, 6))
 yscale = 'linear'
 
 # Plot analytical
-_=axes[0].plot(T, Z, label='Analytical (RCEMIP)', color='r')
-_=axes[1].plot(pz, Z, label='Analytical (RCEMIP)', color='r')
-_=axes[2].plot(qz, Z, label='Analytical (RCEMIP)', color='r')
+_=axes[0].plot(T, Z/1000.0, label='Analytical (RCEMIP)', color='r')
+_=axes[1].plot(pz, Z/1000.0, label='Analytical (RCEMIP)', color='r')
+_=axes[2].plot(qz, Z/1000.0, label='Analytical (RCEMIP)', color='r')
 
 # Plot profiles
 for p in profiles:
     if not p.get('plot', True):
         continue
-    _=axes[0].plot(p['T'], p['Z'], label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
-    _=axes[1].plot(p['p'], p['Z'], label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
-    _=axes[2].plot(p['qv'], p['Z'], label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
+    _=axes[0].plot(p['T'], p['Z']/1000.0, label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
+    _=axes[1].plot(p['p'], p['Z']/1000.0, label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
+    _=axes[2].plot(p['qv'], p['Z']/1000.0, label=p['label'], color=p['color'], linestyle=p['linestyle'], linewidth=lwide)
 
 # Plot T formatting
 _=axes[0].set_xlabel("T [K]")
-_=axes[0].set_ylabel("Height Z [m]")
+_=axes[0].set_ylabel("Height Z [km]")
 _=axes[0].set_title('Temperature Profile')
 #_=axes[0].legend()
 _=axes[0].grid(True)
 _=axes[0].set_yscale(yscale)
-_=axes[0].set_ylim(10, 35000)
+_=axes[0].set_ylim(0.01, 35)
 
 # Plot p formatting
 _=axes[1].set_xlabel("p [Pa]")
@@ -184,7 +193,7 @@ _=axes[1].set_title('Pressure Profile')
 _=axes[1].legend()
 _=axes[1].grid(True)
 _=axes[1].set_yscale(yscale)
-_=axes[1].set_ylim(10, 35000)
+_=axes[1].set_ylim(0.01, 35)
 
 # Plot qv formatting
 _=axes[2].set_xlabel("qv [kg/kg]")
@@ -192,7 +201,7 @@ _=axes[2].set_title('Water Vapor Profile')
 _=axes[2].legend()
 _=axes[2].grid(True)
 _=axes[2].set_yscale(yscale)
-_=axes[2].set_ylim(10, 35000)
+_=axes[2].set_ylim(0.01, 35)
 
 plt.tight_layout()
 plot_filename = 'IC_comparison_three_profiles.png'
