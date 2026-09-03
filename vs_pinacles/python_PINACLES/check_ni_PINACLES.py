@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 icase = "RCE03_150x150_1km"
 varname = "qnc_1900.0_m3"
 
-in_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw"
+in_dir = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/cat_raw"
 
 # Simulation days to load (inclusive)
 day_start = 30

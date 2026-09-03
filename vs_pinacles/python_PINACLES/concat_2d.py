@@ -24,13 +24,13 @@ import h5py
 # CONFIGURATION
 # =============================================================================
 
-icase   = "RCE01_dx1km_600x600km"
+icase   = "RCE06_dx1km_150x150km"
 
 in_dir  = (
-    f"/pscratch/sd/w/wcmca1/PINACLES/rce/"
+    f"/pscratch/sd/w/wcmca1/PINACLES/"
     f"{icase}/simlinks/fields2d"
 )
-out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw"
+out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/cat_raw"
 
 # Variable to extract from each hourly file.
 # Available 2D variables include: imse, LWP, IWP, RAINNC, RAINNCV, T2, qv2,
@@ -39,7 +39,7 @@ out_dir = f"/pscratch/sd/w/wcmca1/PINACLES/rce/{icase}/cat_raw"
 # surface_sw_down, surface_sw_up, toa_lw_down, toa_lw_up, toa_sw_down,
 # toa_sw_up, visibility, and height-level fields (e.g., T_100.0, qv_500.0, ...)
 #varname = "qni1_9900.0_m3"
-varname = "imse" #"rain_rate" #"LW_UP_TOA" 
+varname = "toa_lw_up" #"rain_rate" #"toa_lw_up" 
 
 # File minute pattern for specifying frequency.
 # Use "00m" for hourly data (only read files on the hour).
@@ -49,7 +49,7 @@ minute_pattern = "00m"
 # Day range to process (inclusive, 0-based integer day numbers matching the
 # leading digits in filenames, e.g. 00d-HHh-... → day 0).
 day_start = 0
-day_end   = 45   # adjust to the last available simulation day
+day_end   = 55   # adjust to the last available simulation day
 
 # =============================================================================
 

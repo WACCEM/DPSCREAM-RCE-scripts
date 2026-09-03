@@ -114,7 +114,7 @@ cases = [
     # {
     #     "label"   : "RCEMIP_PINACLES_dx3km_150x150km  (1-hr)",
     #     "varname" : "VWP",
-    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE03_150x150_1km/havg",
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/RCE03_150x150_1km/havg",
     #     "infile"  : "RCE03_150x150_1km.{vname}.havg.day00_to_60.nc",
     #     "color"   : "orange",
     #     "lwide"  : 3.0,
@@ -143,7 +143,7 @@ cases = [
     # {
     #     "label"   : "PINACLES_dx1km_600x600km v0",
     #     "varname" : varname_PINACLES,
-    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/havg",
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/RCE00_dx1km_600x600km/havg",
     #     "infile"  : "RCE00_dx1km_600x600km.{vname}.havg.day00_to_59.nc",
     #     "color"   : "lightgreen",
     #     "lwide"  : 3.0,
@@ -151,7 +151,7 @@ cases = [
     # {
     #     "label"   : "RCEMIP_PINACLES_dx1km_600x600km v1",
     #     "varname" : varname_PINACLES,
-    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE01_dx1km_600x600km/havg",
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/RCE01_dx1km_600x600km/havg",
     #     "infile"  : "RCE01_dx1km_600x600km.{vname}.havg.day00_to_44.nc",
     #     "color"   : "green",
     #     "lwide"  : 3.0,
@@ -159,7 +159,7 @@ cases = [
     # {
     #     "label"   : "RCEMIP_PINACLES_dx1km_600x600km v2",
     #     "varname" : varname_PINACLES,
-    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/rce/RCE02_dx1km_600x600km/havg",
+    #     "indir"   : "/pscratch/sd/w/wcmca1/PINACLES/RCE02_dx1km_600x600km/havg",
     #     "infile"  : "RCE02_dx1km_600x600km.{vname}.havg.day00_to_24.nc",
     #     "color"   : "green",
     #     "lwide"  : 3.0,

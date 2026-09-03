@@ -25,7 +25,7 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "dx1km_L150km_RCE02_gpu"
+icase      = "dx1km_L600km_RCE03_gpu"
 varname    = "LW_flux_up_at_model_top" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
 #diag_equiv_reflectivity_max
 # File naming parameters
@@ -49,16 +49,31 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
-ts_end   = "2000-04-30"
+ts_end   = "2000-03-06"
 
 
 # ESMF weight file produced by ESMF_RegridWeightGen.
 # Maps from the unstructured DP-SCREAM source grid (ncol columns) to the
 # desired regular Cartesian destination grid.
 remap_method = "patch"
+
 weightdir  = "/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap/"
-srcgrid = "DPSCREAM_RCE_dx1km_150x150km_plus"
-dstgrid = "PINACLES_YX_dx1km_150x150km"
+
+if("150" in icase):
+    if("dx1km_L150km" in icase):
+        srcgrid = "DPSCREAM_RCE_dx1km_150x150km_plus"
+    else:
+        srcgrid = "DPSCREAM_RCE_dx1km_150x150km"
+    
+    dstgrid = "PINACLES_YX_dx1km_150x150km"
+
+else:
+    if(icase == "dx1km_L600km_RCE03_gpu"):
+        srcgrid = "DPSCREAM_RCE_dx1km_600x600km_plus"        
+    else:
+        srcgrid = "DPSCREAM_RCE_dx1km_600x600km"
+
+    dstgrid = "PINACLES_YX_dx1km_600x600km"
 
 # %%
 weightfile = (f"{srcgrid}_to_{dstgrid}_{remap_method}.nc")

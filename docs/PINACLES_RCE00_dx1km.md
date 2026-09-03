@@ -1,10 +1,10 @@
-# PINACLES Simulation: RCE00_dx1km_600x600km
+# PINACLES Simulation Case Summary: RCE00_dx1km_600x600km
 
-This document describes the configuration and output of the RCE simulation using the PINACLES model.
+## Overview
+
+This document describes the configuration and output of the RCE simulation "RCE00_dx1km_600x600km" using the PINACLES model. It starts with the idealized initial condition and show clear convective self-aggregation.
 
 *Note: This simulation was originally referred to as "RCE_600x600_1km", but is now called "RCE00_dx1km_600x600km" to coordinate with additional sensitivity simulations.*
-
-## General Information
 *   **Model:** PINACLES
 *   **Case Type:** Radiative Convective Equilibrium (RCE)
 *   **Run Scripts:** `sub_test.sh` and `resub_test_mr.sh`
@@ -13,7 +13,7 @@ This document describes the configuration and output of the RCE simulation using
 *   **Model Source Code:** `/global/cfs/cdirs/wcm_code/ksa/PINACLES/PINACLES` (at commit `f3a70bf5e0478149ca358f0d31597f57f9ef3ed8`)
     *   *Note: This commit is prior to the final configuration changes made to more strictly adhere to the RCEMIP protocol (as described from line 641 in `PINACLES_RCE_note.md`). Those changes have not been staged yet.*
 *   **Root Simulation Directory:** `/pscratch/sd/k/ksa/simulation/PINACLES/rce/1km/RCE00_dx1km_600x600km`
-*   **Post-Processed Data Directory:** `/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km`
+*   **Post-Processed Data Directory:** `/pscratch/sd/w/wcmca1/PINACLES/RCE00_dx1km_600x600km`
 
 ## Computational Configuration
 *   **Machine:** NERSC Perlmutter (CPU nodes)
@@ -40,11 +40,11 @@ For example, the main 2D output fields (`fields2d`) for a specific job can be fo
  
 The `fields2d` output is written at a frequency of every 3600 seconds (1 hour) as instantanous values. Output variables include `T`, `qv`, `thetav`, `qc`, `buoyancy`, and `reflectivity` at specified vertical levels.
 
-### Raw `fields2d` files
+### Raw output files
 
 The 2D history files from different subdirectories have been organized into the following single directory by symbolic links.
 
-Directory: `/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/simlinks/fields2d`
+Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE00_dx1km_600x600km/simlinks/fields2d`
 
 The vertical levels designated as `[level]` in the table below are: 100.0, 500.0, 900.0, 1900.0, 2900.0, 4900.0, 5900.0, 7900.0, and 9900.0 meters.
 
@@ -88,9 +88,9 @@ The vertical levels designated as `[level]` in the table below are: 100.0, 500.0
 | `windspeed10` | windspeed at 10m | `m^2 s^{-1}` |
 | `windspeed_sfc` | surface windspeed | `m s^{-1}` |
 
-### Concatenated/processed `fields2d` variables
+### Processed output variables
 
-Directory: `/pscratch/sd/w/wcmca1/PINACLES/rce/RCE00_dx1km_600x600km/cat_raw`
+Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE00_dx1km_600x600km/cat_raw`
 
 | Variable | Description  | Units |
 |----------|------------- |-------|

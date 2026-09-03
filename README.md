@@ -10,7 +10,7 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
-- [Shared Tools (`dp_scream_tools`)](#shared-tools-dp_scream_tools)
+- [Shared Tools (`rce_tools`)](#shared-tools-rce_tools)
 - [Requirements](#requirements)
 - [Simulations](#simulations)
   - [Running](#running)
@@ -38,23 +38,23 @@ This repository provides tools to:
 
 ```
 DP-SCREAM/
-├── dp_scream_tools/      # Shared analysis and plotting tools for DP-SCREAM and PINACLES
+├── rce_tools/      # Shared analysis and plotting tools for DP-SCREAM and PINACLES
 ├── python_DP-SCREAM/     # Python scripts and Jupyter notebooks for post-processing
 │   ├── remap/            # Horizontal remapping weights and regridding scripts
 │   └── *.py / *.ipynb
 ├── run_scripts/          # Bash job-submission scripts for HPC
 │   └── yaml_files/       # SCREAM output YAML configuration files
-├── theory/               # (external / not tracked) Notes and LaTeX write-ups
+├── dpscream_doc/           # (external / not tracked) Notes and LaTeX write-ups
 └── scmlib/               # (external / not tracked) SCM/DP utility library
 ```
 
 ---
 
-## Shared Tools (`dp_scream_tools`)
+## Shared Tools (`rce_tools`)
 
-The `dp_scream_tools` package at the root of the repository provides shared functions used by multiple analysis scripts across the project (e.g., both DP-SCREAM and PINACLES output processing). 
+The `rce_tools` package at the root of the repository provides shared functions used by multiple analysis scripts across the project (e.g., both DP-SCREAM and PINACLES output processing). 
 
-- **`dp_scream_tools.plotting`**: Contains shared plotting utilities, including colormap setup, 2D spatial slicing, time-mean extraction, noleap calendar handling, and ffmpeg binary detection for animations.
+- **`rce_tools.plotting`**: Contains shared plotting utilities, including colormap setup, 2D spatial slicing, time-mean extraction, noleap calendar handling, and ffmpeg binary detection for animations.
 
 ---
 
@@ -102,7 +102,7 @@ See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 | RCE05_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with `do_iop_subsidence=false` |
 | RCE06_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with P3 linear ccn function as in v3.0.2 |
 | RCE07_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with the high solar irradiance in v3.0.2 |
-| RCE02_dx1km_gpu |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config |
+| **RCE02_dx1km_gpu** |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config |
 | dx1km_L150km_RCE01_gpu|  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & RCEMIP IC |
 | dx1km_L150km_RCE02_gpu |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & default RCE IC |
 | dx1km_L150km_RCE03_gpu? |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC |

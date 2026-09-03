@@ -76,8 +76,8 @@ stop_option=ndays
 stop_n=5
 
 # set walltime
-#walltime='03:30:00'
-walltime='00:15:00'
+walltime='02:30:00'
+#walltime='00:15:00'
 
 ## SET DOMAIN SIZE AND DYNAMICS RESOLUTION:
 # - Note that these scripts are set to run with dx=dy=3.33 km
@@ -126,12 +126,12 @@ nu_top_dyn=3000.0
 submitter_email="Koichi.Sakaguchi@pnnl.gov"
 
 #-switch to run/not to run CESM scripts  -----------------------------------
-run_setup=true        #case.setup 
-clean_setup=true
+run_setup=false        #case.setup 
+clean_setup=false
 
 
-run_build=true       #./case.build
-clean_build=true
+run_build=false       #./case.build
+clean_build=false
 
 edit_output=false
 #./atmchange to edit output options (e.g., compute tendencies for output, add yaml output files, etc)
@@ -141,7 +141,7 @@ edit_domain=false
 edit_jobconf=false
 edit_atmconf=false
 
-do_continue_run=FALSE
+do_continue_run=TRUE
  # whether to continue a run by writing CONTINUE_RUN=TRUE in env_run.xml.  If true, also need to set the number of model time steps to run (ncpl) below.
 num_resubmit=20
 #-submit a job
