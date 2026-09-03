@@ -1,10 +1,9 @@
-# PINACLES Simulation: RCE01_dx1km_600x600km
+# PINACLES Simulation Case Summary: RCE01_dx1km_600x600km
 
-This document describes the configuration and output of the RCE simulation using the PINACLES model.
+## Overview
 
-*Note: This simulation starts from an already spun-up initial condition (`profile_from_RCE03_150x150_1km.nc`), compared to RCE00 which started from a linear profile.*
+This document describes the configuration and output of the RCE simulation "RCE01_dx1km_600x600km" using the PINACLES model. This simulation starts from an already spun-up initial condition from a previous PINACLES simulation over a small domain (`profile_from_RCE03_150x150_1km.nc`). Unlike RCE00_dx1km_600x600km, this simulation does not show convective self-aggregation.
 
-## General Information
 *   **Model:** PINACLES
 *   **Case Type:** Radiative Convective Equilibrium (RCE)
 *   **Run Scripts:** `sub_test.sh` and `resub_test_mr.sh`
@@ -41,7 +40,7 @@ For example, the main 2D output fields (`fields2d`) for a specific job can be fo
  
 The `fields2d` output is written at a frequency of every 3600 seconds (1 hour) as instantanous values. Output variables include `T`, `qv`, `thetav`, `qc`, `buoyancy`, `reflectivity`, `dynamic pressure`, `p_hydrostatic`, and `qi1` at specified vertical levels. *(Note: `dynamic pressure`, `p_hydrostatic`, and `qi1` are new in RCE01. RCE01 also outputs an additional vertical level corresponding to level index 59).*
 
-### Raw `fields2d` files
+### Raw output files
 
 The 2D history files from different subdirectories have been organized into the following single directory by symbolic links.
 
@@ -92,7 +91,7 @@ The vertical levels designated as `[level]` in the table below are: 100.0, 500.0
 | `windspeed10` | windspeed at 10m | `m^2 s^{-1}` |
 | `windspeed_sfc` | surface windspeed | `m s^{-1}` |
 
-### Concatenated/processed `fields2d` variables
+### Processed output variables
 
 Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE01_dx1km_600x600km/cat_raw`
 
@@ -102,3 +101,17 @@ Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE01_dx1km_600x600km/cat_raw`
 | `toa_lw_up` | Upward LW flux at the top of the atmosphere | W/m2 |
 | `ref` | maximum reflectivity | dBz |
 | `imse` | Vertically Integrated Moist Static Energy | J/m2 |
+
+#### Data for MCS Tracking Analysis
+
+To facilitate MCS tracking, raw sub-daily output (`.h5` files) are processed by the script `mcs/prep_mcstrack_PINACLES.py`. This script calculates precipitation rates from accumulated `RAINNC`, extracts longwave flux (`LW_UP_TOA`) and reflectivity (`ref`), and outputs them into single-time NetCDF files with standard PINACLES spatial dimensions (`x`, `y`, `lat`, `lon`).
+
+Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE01_dx1km_600x600km/mcstrack`
+
+File Name Format: `${CASE}.mcstrack.YYYY-MM-DD_HHMM.nc`
+
+| Unified Variable | Original PINACLES Variable | Units |
+|------------------|----------------------------|-------|
+| `rain_rate`      | Calculated from `RAINNC`   | mm/h  |
+| `toa_lw_up`      | `LW_UP_TOA` / `toa_lw_up`  | W/m2  |
+| `ref`            | `ref` / `REFL_10CM`        | -     |

@@ -1,10 +1,10 @@
-# PINACLES Simulation: RCE00_dx1km_600x600km
+# PINACLES Simulation Case Summary: RCE00_dx1km_600x600km
 
-This document describes the configuration and output of the RCE simulation using the PINACLES model.
+## Overview
+
+This document describes the configuration and output of the RCE simulation "RCE00_dx1km_600x600km" using the PINACLES model. It starts with the idealized initial condition and show clear convective self-aggregation.
 
 *Note: This simulation was originally referred to as "RCE_600x600_1km", but is now called "RCE00_dx1km_600x600km" to coordinate with additional sensitivity simulations.*
-
-## General Information
 *   **Model:** PINACLES
 *   **Case Type:** Radiative Convective Equilibrium (RCE)
 *   **Run Scripts:** `sub_test.sh` and `resub_test_mr.sh`
@@ -40,7 +40,7 @@ For example, the main 2D output fields (`fields2d`) for a specific job can be fo
  
 The `fields2d` output is written at a frequency of every 3600 seconds (1 hour) as instantanous values. Output variables include `T`, `qv`, `thetav`, `qc`, `buoyancy`, and `reflectivity` at specified vertical levels.
 
-### Raw `fields2d` files
+### Raw output files
 
 The 2D history files from different subdirectories have been organized into the following single directory by symbolic links.
 
@@ -88,7 +88,7 @@ The vertical levels designated as `[level]` in the table below are: 100.0, 500.0
 | `windspeed10` | windspeed at 10m | `m^2 s^{-1}` |
 | `windspeed_sfc` | surface windspeed | `m s^{-1}` |
 
-### Concatenated/processed `fields2d` variables
+### Processed output variables
 
 Directory: `/pscratch/sd/w/wcmca1/PINACLES/RCE00_dx1km_600x600km/cat_raw`
 

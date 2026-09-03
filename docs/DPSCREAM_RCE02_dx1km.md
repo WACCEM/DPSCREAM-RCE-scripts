@@ -42,13 +42,13 @@ The simulation is configured to mirror SCREAM's `noAero` compsets to ensure RCEM
 *   **Prognostic Cloud Number ($N_c$):** Disabled in P3 (`do_prescribed_ccn=false`, `do_predict_nc=false`); uses the fallback compile-time constant $N_{CCNST}$.
 *   **In-Cloud Ice Number:** Capped at the RCEMIP-recommended value of 1.0 $\times$ 10$^5$ m⁻³ (`max_total_ni=1.0e5`).
 
-## Output Variables
+## Output Variables and Structure
 
 Model outputs are controlled by two YAML files located in `run_scripts/yaml_files/`. Both streams output every **1 hour**.
 
-Additionally, some variables have been remapped from the native unstructured grid to the Cartesian grid used by the "PINACLES" model for analysis. This Cartesian grid features a 1-km grid spacing ()"PINACLES_YX_dx1km" grid). These remapped files are saved under the `remapped/` subdirectory. The regridding process was performed by the script `python_DP-SCREAM/regrid_DPSCREAM.py`.
+Additionally, some variables have been remapped from the native unstructured grid to the Cartesian grid used by the "PINACLES" model for analysis. This Cartesian grid features a 1-km grid spacing ("PINACLES_YX_dx1km" grid). These remapped files are saved under the `remapped/` subdirectory. The regridding process was performed by the script `python_DP-SCREAM/regrid_DPSCREAM.py`.
 
-### Raw history files
+### Raw output files
 
 Directory: `/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/RCE02_dx1km_gpu/run`
 
@@ -161,11 +161,13 @@ Source: `scream_test9_output_inst_1hour.yaml`
 | `qv_2m` | 2-m water vapour mixing ratio | Coupler | `kg/kg` | `(time, ncol)` |
 | `wind_speed_10m` | 10-m wind speed | Coupler | `m/s` | `(time, ncol)` |
 
-### Processed and Regridded variables for MCS tracking and spatial anlyses
+### Processed output variables
+
+*(Note: These variables are processed and regridded for MCS tracking and spatial analyses)*
 
 File Name Format: `${CASE}.${variable name}.[INSTANT/AVERAGE].${frequency}.${Destination grid}.YYYY-MM-DD.nc`
 
-DIrectory: `/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/remapped`
+Directory: `/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/remapped`
 
 Grid: The PINACLES 600x 600 km Cartesian grid with 1-km dx
 
@@ -175,3 +177,17 @@ Grid: The PINACLES 600x 600 km Cartesian grid with 1-km dx
 | `LW_flux_up_at_model_top` | Upward LW flux at model top | W/m2 |
 | `diag_equiv_reflectivity_max` | Vertical maximum of diag_equiv_reflectivity | - |
 | `imse` | Vertically Integrated Moist Static Energy | J/m2 |
+
+#### Data for MCS Tracking Analysis
+
+To facilitate MCS tracking, the remapped variables described above are further processed by the script `mcs/prep_mcstrack_dpscream.py`. This script extracts individual hourly time slices, combines variables, and standardizes their names and spatial dimensions (`y`, `x`) to match the PINACLES output format.
+
+Directory: `/pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/mcstrack`
+
+File Name Format: `${CASE}.mcstrack.YYYY-MM-DD_HHMM.nc`
+
+| Unified Variable | Original DP-SCREAM Variable | Units |
+|------------------|-----------------------------|-------|
+| `rain_rate`      | `precip_total_surf_mass_flux`| mm/h  |
+| `toa_lw_up`      | `LW_flux_up_at_model_top`   | W/m2  |
+| `ref`            | `diag_equiv_reflectivity_max`| -     |
