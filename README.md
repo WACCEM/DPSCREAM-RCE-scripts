@@ -1,8 +1,8 @@
-# DP-SCREAM: Doubly-Periodic SCREAM — Radiative-Convective Equilibrium
+# Radiative-Convective Equilibrium by DP-SCREAM: Doubly-Periodic SCREAM and PINACLES model
 
-Scripts, notebooks, and configuration files for running and post-processing
+Scripts and configuration files for running
 **DP-SCREAM** (Doubly-Periodic Simple Cloud-Resolving E3SM Atmosphere Model)
-simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
+simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases and analysis of the outputs to compare DP-SCREAM and PINACLES RCE simulations.
 
 ---
 
@@ -10,16 +10,12 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
-- [Shared Tools (`rce_tools`)](#shared-tools-rce_tools)
 - [Requirements](#requirements)
 - [Simulations](#simulations)
   - [Running](#running)
   - [Post-Processing](#post-processing)
   - [Output](#output)
   - [Archive](#archive)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [Contact](#contact)
 
 ---
 
@@ -27,10 +23,11 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases.
 
 This repository provides tools to:
 
-- Launch DP-SCREAM RCE simulations on HPC systems (CPU and GPU)
+- Bash scripts to build and launch DP-SCREAM RCE simulations on NERSC Perlmutter CPU and GPU nodes: model source code in a separate directory
 - Configure model output via YAML files
 - Concatenate, regrid, and horizontally average model output
-- Analyse and visualise the results via Jupyter notebooks
+- Analyze and visualize the results using Python scripts
+- Bash scripts for NCO, HPSS archive, and GNU parallel tasks
 
 ---
 
@@ -38,41 +35,52 @@ This repository provides tools to:
 
 ```
 DP-SCREAM/
-├── rce_tools/      # Shared analysis and plotting tools for DP-SCREAM and PINACLES
-├── python_DP-SCREAM/     # Python scripts and Jupyter notebooks for post-processing
-│   ├── remap/            # Horizontal remapping weights and regridding scripts
+├── batch/                                # Bash scripts for executing batch/parallel processing jobs
+├── docs/                                 # Documentation for DP-SCREAM and PINACLES RCE simulations
+├── dpscream_doc/                         # (external / not tracked) Notes and LaTeX write-ups
+├── giobiagioli_organization_indices/     # Original reference code for computing organization indices
+├── hpss/                                 # Bash scripts for archiving simulation data to HPSS
+├── input/                                # Initial conditions and forcing profile files (e.g. RCEMIP)
+├── mcs/                                  # Scripts to format and prepare outputs for MCS tracking
+├── nco/                                  # Bash scripts utilizing NCO for regridding or data manipulation
+├── organization_indices/                 # Python scripts and notebooks for computing organization indices
+├── python_DP-SCREAM/                     # Python scripts and Jupyter notebooks for post-processing
+│   ├── remap/                            # Horizontal remapping weights and regridding scripts
 │   └── *.py / *.ipynb
-├── run_scripts/          # Bash job-submission scripts for HPC
-│   └── yaml_files/       # SCREAM output YAML configuration files
-├── dpscream_doc/           # (external / not tracked) Notes and LaTeX write-ups
-└── scmlib/               # (external / not tracked) SCM/DP utility library
+├── rce_tools/                            # Shared Python package with analysis and plotting tools
+├── run_scripts/                          # Bash job-submission scripts for HPC
+│   └── yaml_files/                       # SCREAM output YAML configuration files
+├── scmlib/                               # (external / not tracked) SCM/DP utility library
+└── vs_pinacles/                          # Python scripts and notebooks for comparing DP-SCREAM and PINACLES
 ```
-
----
-
-## Shared Tools (`rce_tools`)
-
-The `rce_tools` package at the root of the repository provides shared functions used by multiple analysis scripts across the project (e.g., both DP-SCREAM and PINACLES output processing). 
-
-- **`rce_tools.plotting`**: Contains shared plotting utilities, including colormap setup, 2D spatial slicing, time-mean extraction, noleap calendar handling, and ffmpeg binary detection for animations.
-
 ---
 
 ## Requirements
 
+### Run DP-SCREAM (E3SM with eamxx)
 
-| Dependency | Purpose |
-|------------|---------|
-| Python ≥ 3.9 | CIME, post-processing and analysis |
-| `xarray`, `numpy`, `scipy` | Data manipulation |
-| `matplotlib`, `cartopy` | Visualisation |
-| `xesmf` | Regridding |
-| `netCDF4` / `h5py` | NetCDF I/O |
-| E3SM / SCREAM source code | Running simulations |
+- cray-python module (not the standard Python module)
 
-- To get the late-enough python for CIME, we need to load the python module on Perlmutter (for v3.1.0 alpha and later)
-- It is better to load the cray Python module than the NERSC Python modules. As of 2026-05, the default is `cray-python/3.11.7`. See the "CIME Python Version Warning and Its Side Effects" section in `run_scripts/build_failures.md`.
-- DO NOT activate the E3SM unified environment when configuring and manupilating DP-SCREAM (E3SM) cases
+Other dependancies are already taken care of in the E3SM code for the Perlmutter system
+later)
+- It is better to load the cray Python module than the NERSC Python modules. As of 2026-05, the default is `cray-python/3.11.7`.
+- DO NOT load the standard Python module nor activate the E3SM unified environment when configuring and manupilating DP-SCREAM (E3SM) cases
+- See the "CIME Python Version Warning and Its Side Effects" section in `run_scripts/build_failures.md`.
+
+### Analysis
+
+**Recommended Conda Environment (`dpscream_analysis`)**
+
+Shared `dpscream_analysis` Conda environment is available on Perlmutter for WACCEM repo members. To use it:
+```bash
+module load python
+conda activate dpscream_analysis
+```
+
+*Current configuration (as of Sep 2026):*
+- **Python:** 3.11.14
+- **Data & I/O:** `xarray` (2025.10.1), `numpy` (2.2.6), `scipy` (1.16.2), `netCDF4` (1.7.3), `h5py` (3.16.0)
+- **Visualization:** `matplotlib` (3.10.7), `cartopy` (0.25.0)
 
 ---
 
@@ -90,131 +98,64 @@ sbatch run_scripts/run_gpu_dpxx_scream_RCE_dx1km.sh
 
 See `run_scripts/RCE_configuration.md` for a description of the RCE case setup.
 
+## PINACLES model
+
+See another code project for configuring/running the PINACLES model for RCE (https://github.com/WACCEM/pinacles-rce-runscripts).
+
 ---
-### List of simulations
 
-| Case name |  Grid | Description |
-|----------|-------------|--------
-| RCE01_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 release code default |
-| RCE02_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 alpha 8426cb31c7   |
-| RCE03_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 with `lambda_high = 0.08` |
-| RCE04_dx3km_gpu |  dx=3km, Lx= 600km | v3.0.2 with `do_iop_subsidence=false` |
-| RCE05_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with `do_iop_subsidence=false` |
-| RCE06_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with P3 linear ccn function as in v3.0.2 |
-| RCE07_dx3km_gpu |  dx=3km, Lx= 600km | v3.1.0 8426cb31c7 with the high solar irradiance in v3.0.2 |
-| **RCE02_dx1km_gpu** |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config |
-| dx1km_L150km_RCE01_gpu|  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & RCEMIP IC |
-| dx1km_L150km_RCE02_gpu |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & default RCE IC |
-| dx1km_L150km_RCE03_gpu? |  dx=1km, Lx= 150km | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC |
-| dx1km_L600km_RCE03_gpu |  dx=1km, Lx= 600km | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC|
+### List of DP-SCREAM Simulations
 
+**RCE02_dx1km_gpu** is the primary simulation for the analysis. See the linked document for detail.
 
-### output
+| Case name | Domain Size | Resolution | Initialization | Description |
+|-----------|-------------|------------|----------------|-------------|
+| RCE01_dx3km_gpu | 600x600 km | 3 km | | v3.0.2 release code default |
+| RCE02_dx3km_gpu | 600x600 km | 3 km | | v3.1.0 alpha 8426cb31c7   |
+| RCE03_dx3km_gpu | 600x600 km | 3 km | | v3.0.2 with `lambda_high = 0.08` |
+| RCE04_dx3km_gpu | 600x600 km | 3 km | | v3.0.2 with `do_iop_subsidence=false` |
+| RCE05_dx3km_gpu | 600x600 km | 3 km | | v3.1.0 8426cb31c7 with `do_iop_subsidence=false` |
+| RCE06_dx3km_gpu | 600x600 km | 3 km | | v3.1.0 8426cb31c7 with P3 linear ccn function as in v3.0.2 |
+| RCE07_dx3km_gpu | 600x600 km | 3 km | | v3.1.0 8426cb31c7 with the high solar irradiance in v3.0.2 |
+| [**RCE02_dx1km_gpu**](docs/DPSCREAM_RCE02_dx1km.md) | 600x600 km | 1 km | | v3.1.0 8426cb31c7 with RCEMIP config |
+| dx1km_L150km_RCE01_gpu | 150x150 km | 1 km | | v3.1.0 8426cb31c7 with RCEMIP config & RCEMIP IC |
+| dx1km_L150km_RCE02_gpu | 150x150 km | 1 km | | v3.1.0 8426cb31c7 with RCEMIP config & default RCE IC |
+| dx1km_L150km_RCE03_gpu? | 150x150 km | 1 km | | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC |
+| dx1km_L600km_RCE03_gpu | 600x600 km | 1 km | | v3.1.0 8426cb31c7 with RCEMIP config & PINACLES IC |
 
-Output frequency: **5 min instantaneous snapshots** (`scream_new_output_inst_5min.yaml`).
+### List of PINACLES Simulations
 
-| Variable | Description | Source |
-|----------|-------------|--------|
-| `z_mid` | Height at layer midpoints | Dynamics |
-| `p_mid` | Pressure at layer midpoints | Dynamics |
-| `ps` | Surface pressure | HOMME |
-| `omega` | Vertical pressure velocity | HOMME |
-| `cldfrac_liq` | Liquid cloud fraction | SHOC |
-| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC |
-| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC |
-| `tke` | Turbulent kinetic energy | SHOC |
-| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC |
-| `pbl_height` | Planetary boundary layer height | SHOC |
-| `cldfrac_ice` | Ice cloud fraction | CLD |
-| `cldfrac_tot_for_analysis` | Total cloud fraction (for analysis) | CLD |
-| `bm` | Ice rime volume mixing ratio | P3 |
-| `nc` | Cloud droplet number concentration | P3 |
-| `ni` | Cloud ice number concentration | P3 |
-| `nr` | Rain drop number concentration | P3 |
-| `qi` | Cloud ice mixing ratio | P3 |
-| `qm` | Ice rime mass mixing ratio | P3 |
-| `qr` | Rain mixing ratio | P3 |
-| `U` | Zonal wind | SHOC / HOMME |
-| `V` | Meridional wind | SHOC / HOMME |
-| `qc` | Cloud liquid water mixing ratio | SHOC / P3 |
-| `qv` | Water vapour mixing ratio | SHOC / P3 |
-| `T_mid` | Air temperature at layer midpoints | SHOC / P3 / RRTMGP / HOMME |
-| `LiqWaterPath` | Vertically integrated liquid water path | RRTMGP |
-| `IceWaterPath` | Vertically integrated ice water path | RRTMGP |
-| `RainWaterPath` | Vertically integrated rain water path | RRTMGP |
-| `RimeWaterPath` | Vertically integrated rime water path | RRTMGP |
-| `VapWaterPath` | Vertically integrated water vapour path | RRTMGP |
-| `PotentialTemperature` | Potential temperature | Diagnostics |
-| `LiqPotentialTemperature` | Liquid-water potential temperature | Diagnostics |
-| `DryStaticEnergy` | Dry static energy | Diagnostics |
-| `RelativeHumidity` | Relative humidity | Diagnostics |
-| `SeaLevelPressure` | Sea-level pressure | Diagnostics |
-| `surf_radiative_T` | Surface radiative temperature | Coupler |
-| `T_2m` | 2-m air temperature | Coupler |
-| `qv_2m` | 2-m water vapour mixing ratio | Coupler |
-| `wind_speed_10m` | 10-m wind speed | Coupler |
-| `U_at_10m_above_surface` | 10-m zonal wind | Coupler |
-| `V_at_10m_above_surface` | 10-m meridional wind | Coupler |
+**RCE01_dx1km_600x600km** is the primary simulation for the analysis. See the linked documents for detail.
 
-Output frequency: **5 min averages** (`scream_new_output_avg_5min.yaml`).
+| Case name | Domain Size | Resolution | Initialization | Description |
+|-----------|-------------|------------|----------------|-------------|
+| test_300x300_1km_init100 | 300×300 km | 1 km | init100 | |
+| test_500x500_3km_scream_init_100dZ | 500×500 km | 3 km | SCREAM | 100m vertical spacing, half vertical levels |
+| test_500x500_3km_scream_init_100dZ_nz330 | 500×500 km | 3 km | SCREAM | 100m vertical spacing, full vertical levels |
+| test_600x600_3km_coldstart | 600×600 km | 3 km | Cold start | |
+| test_600x600_3km_init100 | 600×600 km | 3 km | init100 | |
+| test_600x600_3km_init100_2dhighfreq | 600×600 km | 3 km | init100 | 10-min 2D output |
+| test_600x600_3km_scream_init | 600×600 km | 3 km | SCREAM | |
+| test_600x600_3km_scream_init_2dhighfreq | 600×600 km | 3 km | SCREAM | 10-min 2D output |
+| test_600x600_3km_scream_init_2dhighfreq_v2 | 600×600 km | 3 km | SCREAM | 10-min 2D output (v2) |
+| test_600x600_4km_scream_init_100dz | 600×600 km | 4 km | SCREAM | 100m vertical spacing |
+| RCE_150x150_1km (test_150x150_1km) | 150×150 km | 1 km | SCREAM linear profile | Base test: 12-hour run. |
+| RCE02_150x150_1km (test02_150x150_1km) | 150×150 km | 1 km | SCREAM linear profile | 21-day run. |
+| RCE03_150x150_1km (test03_150x150_1km) | 150×150 km | 1 km | SCREAM linear profile | 102-day run. `max_total_ni` added; 2D slice includes more microphysics vars (qnc, qni1, qi1). Daily 3D output. |
+| RCE04_150x150_1km (test04_150x150_1km) | 150×150 km | 1 km | RCE03 profile | 1-day run. Initialized from `RCE03` profile. No restart. |
+| RCE05_dx1km_150x150km | 150×150 km | 1 km | RCE03_v0 profile | 14-day run. Initialized from `RCE03_v0` profile. |
+| RCE06_dx1km_150x150km | 150×150 km | 1 km | Cold start | 19-day run. Cold start (`spunup_init`: false, no profile). |
+| [RCE00_dx1km_600x600km](docs/PINACLES_RCE00_dx1km.md) (RCE_600x600_1km) | 600×600 km | 1 km | SCREAM linear profile | 60-day run. |
+| [**RCE01_dx1km_600x600km**](docs/PINACLES_RCE01_dx1km.md) | 600×600 km | 1 km | RCE03 profile | 44-day run. `max_total_ni` added; 2D slice includes more microphysics vars. |
+| RCE02_dx1km_600x600km | 600×600 km | 1 km | RCE03 profile | 24-day run. |
 
-| Variable | Description | Source |
-|----------|-------------|--------|
-| `z_mid` | Height at layer midpoints | Dynamics |
-| `p_mid` | Pressure at layer midpoints | Dynamics |
-| `ps` | Surface pressure | HOMME |
-| `eddy_diff_mom` | Eddy diffusivity for momentum | SHOC |
-| `sgs_buoy_flux` | Sub-grid buoyancy flux | SHOC |
-| `tke` | Turbulent kinetic energy | SHOC |
-| `inv_qc_relvar` | Inverse cloud liquid relative variance | SHOC |
-| `pbl_height` | Planetary boundary layer height | SHOC |
-| `micro_liq_ice_exchange` | Microphysics liquid–ice exchange rate | P3 |
-| `micro_vap_ice_exchange` | Microphysics vapour–ice exchange rate | P3 |
-| `micro_vap_liq_exchange` | Microphysics vapour–liquid exchange rate | P3 |
-| `precip_liq_surf_mass_flux` | Surface liquid precipitation mass flux | P3 |
-| `precip_ice_surf_mass_flux` | Surface ice precipitation mass flux | P3 |
-| `precip_total_surf_mass_flux` | Total surface precipitation mass flux | P3 |
-| `rad_heating_pdel` | Radiative heating rate × pressure thickness | RRTMGP |
-| `sfc_flux_lw_dn` | Downwelling longwave flux at surface | RRTMGP |
-| `sfc_flux_sw_net` | Net shortwave flux at surface | RRTMGP |
-| `ShortwaveCloudForcing` | Shortwave cloud radiative effect | RRTMGP |
-| `LongwaveCloudForcing` | Longwave cloud radiative effect | RRTMGP |
-| `ZonalVapFlux` | Zonal column water vapour flux | RRTMGP |
-| `MeridionalVapFlux` | Meridional column water vapour flux | RRTMGP |
-| `SW_flux_up_at_model_top` | Upwelling SW flux at model top | RRTMGP |
-| `SW_flux_dn_at_model_top` | Downwelling SW flux at model top | RRTMGP |
-| `LW_flux_up_at_model_top` | Upwelling LW flux at model top | RRTMGP |
-| `SW_flux_dn_at_model_bot` | Downwelling SW flux at model bottom | RRTMGP |
-| `SW_flux_up_at_model_bot` | Upwelling SW flux at model bottom | RRTMGP |
-| `LW_flux_dn_at_model_bot` | Downwelling LW flux at model bottom | RRTMGP |
-| `LW_flux_up_at_model_bot` | Upwelling LW flux at model bottom | RRTMGP |
-| `SW_clrsky_flux_up_at_model_top` | Clear-sky upwelling SW flux at model top | RRTMGP |
-| `LW_clrsky_flux_up_at_model_top` | Clear-sky upwelling LW flux at model top | RRTMGP |
-| `SW_clrsky_flux_dn_at_model_bot` | Clear-sky downwelling SW flux at model bottom | RRTMGP |
-| `SW_clrsky_flux_up_at_model_bot` | Clear-sky upwelling SW flux at model bottom | RRTMGP |
-| `LW_clrsky_flux_dn_at_model_bot` | Clear-sky downwelling LW flux at model bottom | RRTMGP |
-| `LW_clrsky_flux_up_at_model_bot` | Clear-sky upwelling LW flux at model bottom | RRTMGP |
-| `surface_upward_latent_heat_flux` | Surface upward latent heat flux | Diagnostics |
-| `surf_mom_flux` | Surface momentum flux | Coupler |
-| `surf_sens_flux` | Surface sensible heat flux | Coupler |
-| `surf_evap` | Surface evaporation | Coupler |
-| `shoc_T_mid_tend` | SHOC temperature tendency | Process rates |
-| `p3_T_mid_tend` | P3 temperature tendency | Process rates |
-| `rrtmgp_T_mid_tend` | RRTMGP temperature tendency | Process rates |
-| `shoc_qv_tend` | SHOC water vapour tendency | Process rates |
-| `p3_qv_tend` | P3 water vapour tendency | Process rates |
-| `homme_T_mid_tend` | HOMME temperature tendency | Process rates |
-| `homme_qv_tend` | HOMME water vapour tendency | Process rates |
-| `PotentialTemperature_at_700hPa` | Potential temperature at 700 hPa | Diagnostics |
-| `PotentialTemperature_at_1000hPa` | Potential temperature at 1000 hPa | Diagnostics |
-| `omega_at_500hPa` | Vertical pressure velocity at 500 hPa | Diagnostics |
-| `RelativeHumidity_at_700hPa` | Relative humidity at 700 hPa | Diagnostics |
-| `SeaLevelPressure` | Sea-level pressure | Diagnostics |
 
 ---
 
 
 ## Post-Processing
+
+Under development
 
 ```bash
 # calculate vertically integrated MSE
@@ -233,7 +174,9 @@ python horiz_avg_DPSCREAM.py
 python regrid_DPSCREAM.py
 ```
 
-### Derived diagnostics — cold pool (`python_DP-SCREAM/calc_cp_DPSCREAM.py`)
+## Derived diagnostics
+
+### cold pool (`python_DP-SCREAM/calc_cp_DPSCREAM.py`)
 
 The script `python_DP-SCREAM/calc_cp_DPSCREAM.py` reads the 5-min instantaneous
 snapshots and computes cold pool diagnostics following the PINACLES `CaseRCE.py`
@@ -307,7 +250,7 @@ $R_v = 461.5\ \text{J kg}^{-1}\text{K}^{-1}$.
 Output file naming: `{icase}.cp.INSTANT.nmins_x5.{timestamp}.nc`
 
 
-### Archive 
+## Archive 
 screen and tmux
 
 If you find screen a bit clunky, you might want to try tmux. It does the exact same thing but handles window resizing better and has a status bar at the bottom so you always know you are inside a virtual session.
@@ -320,7 +263,7 @@ tmux attach -t hpss_transfer #reattach to the session
 
 HPSS Archive directory: ` /home/projects/m1867/RCE/DP-SCREAM/${casename}`
 
-#### Previous simulation
+### Previous simulation
 
 Chandru's raw outpus : /pscratch/sd/c/chandru/RCE_DP_SCREAM/scream_dpxx_RCE_300K/run/
 
@@ -352,23 +295,5 @@ Chandru's raw outpus : /pscratch/sd/c/chandru/RCE_DP_SCREAM/scream_dpxx_RCE_300K
 ```
 Processed by Laura : /pscratch/sd/p/paccini/temp/output_dp_scream/processed_500x500/
 
-## Configuration
-
-Model output variables and frequency are controlled by YAML files in
-`run_scripts/yaml_files/`. See `run_scripts/RCE_configuration.md` for details.
 
 ---
-
-## Contributing
-
-1. Fork the repository and create a feature branch.
-2. Follow existing code style (PEP 8 for Python, ShellCheck-clean for bash).
-3. Open a pull request with a clear description of the changes.
-
----
-
-## Contact
-
-| Name | Institution | Email |
-|------|-------------|-------|
-| TODO | TODO | TODO |
