@@ -30,47 +30,55 @@ The suite calculates the following organization metrics, returning them as a dic
 
 ### 1. $I_{org}$ (Organization Index)
 *   **Description**: A nearest-neighbor based index. It compares the cumulative distribution function (CDF) of the observed nearest-neighbor distances between cloud centroids to the theoretical Weibull distribution of a completely random (Poisson) point process. Values $>0.5$ indicate aggregation (clustering), $\approx 0.5$ indicates randomness, and $<0.5$ indicates regular dispersion.
-*   **Reference**: Tompkins, A. M., & Semie, A. G. (2017). Organization of tropical convection in low vertical wind shears: Role of updraft entrainment. *Journal of Advances in Modeling Earth Systems*, 9(2), 1046-1068.
+*   **Reference**: Tompkins, A. M., & Semie, A. G. (2017). Organization of tropical convection in low vertical wind shears: Role of updraft entrainment. *Journal of Advances in Modeling Earth Systems*, 9(2), 1046-1068. DOI: 10.1002/2016ms000802
 
 ### 2. $L_{org}$ 
 *   **Description**: Derived from Ripley's K-function and Besag's L-function, this index computes the neighbor density as a function of radius/box size from each cloud centroid. It provides a multi-scale measure of spatial clustering compared to complete spatial randomness (CSR).
-*   **Reference**: Biagioli, G., et al. (2023). A new index for measuring the spatial organization of convection. (A more general implementation by Giovanni Biagioli is often used alongside this).
+*   **Reference**: Biagioli, G., et al. (2023). Measuring Convective Organization. *Journal of the Atmospheric Sciences*, 80(12), 2769-2789. DOI: 10.1175/JAS-D-23-0103.1
+*   **Implementation Note**: The Python code in this repository explicitly calculates the discrete $dL_{org}$ (Equation 21 in Biagioli et al., 2023) rather than the continuous $L_{org}$ (Equation 12). This is evidenced by the use of the Chebyshev ($L_\infty$) distance (`size = 2 * np.maximum(...)`), which corresponds to square observation boxes aligned with the discrete grid rather than circular neighborhoods. The code uses a fast numerical approximation of the Riemann sum with 100 linearly spaced bins (`np.linspace`) to calculate the index efficiently while yielding values virtually identical to strict discrete summation over every grid increment.
 
 ### 3. ROME (Radar Organization MEtric)
 *   **Description**: An area-based metric that accounts for both the size of convective objects and the nearest-edge distance between them (rather than just centroids). It heavily weights larger cloud clusters that are close together.
-*   **Reference**: Retsch, M. H., et al. (2020). Radar Organization Metric (ROME): A new morphological measure for organized convection. *Geophysical Research Letters*, 47(4), e2019GL086208.
+*   **Reference**: Retsch, M. H., et al. (2020). Assessing Convective Organization in Tropical Radar Observations. *Journal of Geophysical Research: Atmospheres*, 125(7), e2019JD031801. DOI: 10.1029/2019jd031801
 
 ### 4. H (Information Entropy)
 *   **Description**: Calculates the Shannon information entropy of the 2D binary image. A lower entropy value corresponds to a more structured, aggregated, and less fragmented cloud field.
-*   **Reference**: Sullivan, S. C., et al. (2019). The effect of secondary ice production on the aggregation of deep convection. *Journal of Advances in Modeling Earth Systems*, 11(12), 4059-4074.
+*   **Reference**: Li, Y., Yano, J.-I., & Lin, Y. (2019). Is atmospheric convection organised?: information entropy analysis. Geophysical & Astrophysical Fluid Dynamics, 113(5–6), 553–573. https://doi.org/10.1080/03091929.2018.1506449
+
 
 ### 5. COP (Convective Organization Potential)
 *   **Description**: Measures the potential of clouds to interact based on their equivalent diameters and the centroid-to-centroid distances of all possible pairs of objects in the scene. 
-*   **Reference**: White, B. A., et al. (2018). The convective organization potential (COP): A new metric for measuring the spatial pattern of convection. *Journal of the Atmospheric Sciences*, 75(3), 859-873.
+*   **Reference**: White, B. A., et al. (2018). Quantifying the Effects of Horizontal Grid Length and Parameterized Convection on the Degree of Convective Organization Using a Metric of the Potential for Convective Interaction. *Journal of the Atmospheric Sciences*, 75(2), 425-450. DOI: 10.1175/JAS-D-16-0307.1
 
 ### 6. ABCOP (Area Based Convective Organization Potential)
 *   **Description**: An extension of COP that uses the areas of the objects and the distance between their edges, providing a more robust measure for irregularly shaped and large squall lines compared to assuming circular objects (which COP implicitly does by using equivalent diameter).
-*   **Reference**: Jin, X., et al. (2022). Area-based convective organization potential (ABCOP). *Geophysical Research Letters*, 49(14).
+*   **Reference**: Jin, D., et al. (2022). A New Organization Metric for Synoptic Scale Tropical Convective Aggregation. *Journal of Geophysical Research: Atmospheres*, 127(21), e2022JD036665. DOI: 10.1029/2022jd036665
 
 ### 7. SCAI (Simple Convective Aggregation Metric)
 *   **Description**: Combines the number of convective objects with the geometric mean distance between all pairs of objects. Note: The code in this repository returns the *negative* SCAI so that higher values correlate with higher aggregation.
-*   **Reference**: Tobin, I., et al. (2013). Does convective aggregation decrease the clear-sky infrared cooling? *Journal of Climate*, 26(20), 8089-8100.
+*   **Reference**: Tobin, I., Bony, S., & Roca, R. (2012). Observational Evidence for Relationships between the Degree of Aggregation of Deep Convection, Water Vapor, Surface Fluxes, and Radiation. *Journal of Climate*, 25(20), 6885–6904. DOI: 10.1175/jcli-d-11-00258.1
 
 ### 8. MCAI (Modified Convective Aggregation Metric)
 *   **Description**: Modifies SCAI by factoring in the size of the objects (using equivalent diameter) to calculate the mean edge-to-edge distance, addressing SCAI's sensitivity to small, unresolved clouds. Note: Returns negative MCAI.
-*   **Reference**: Xu, W., et al. (2018). Modified Convective Aggregation Index (MCAI). 
+*   **Reference**: Xu, W., et al. (2019). Convective Aggregation and Indices Examined from CERES Cloud Object Data. *Journal of Geophysical Research: Atmospheres*, 124(24), 13604-13624. DOI: 10.1029/2019jd030816
 
 ### 9. MICA (Morphological Index of Convective Aggregation)
 *   **Description**: Computes the ratio of the total area of convective objects to the area of the smallest bounding box containing all convective objects in the domain. 
-*   **Reference**: Kadoya, M., & Masunaga, H. (2018). A morphological index of convective aggregation. *Journal of Climate*, 31(21), 8961-8975.
+*   **Reference**: Kadoya, M., & Masunaga, H. (2018). New Observational Metrics of Convective Self-Aggregation: Methodology and a Case Study. *Journal of the Meteorological Society of Japan. Ser. II*, 96(6), 535-548. DOI: 10.2151/jmsj.2018-054
 
 ### 10. Ishape
 *   **Description**: A morphological measure evaluating the complexity of the cloud perimeters. It averages the ratio of the square root of area to the perimeter for all objects. Rounder, smoother objects have higher Ishape values, while highly fragmented or jagged objects have lower values.
-*   **Reference**: Pscheidt, I., et al. (2019). The lifecycle of tropical deep convective systems. *Quarterly Journal of the Royal Meteorological Society*.
+*   **Reference**: Moseley, C., et al. (2019). A Statistical Model for Isolated Convective Precipitation Events. *Journal of Advances in Modeling Earth Systems*, 11(1), 360-375. DOI: 10.1029/2018ms001383
 
 ### 11. OIDRA
-*   **Description**: Organization Index based on Diagonally Restrained Areas. An additional index based on distance weighting and normalized areas of objects.
-*   **Reference**: Biagioli, G., et al. (2024). A new organization index based on diagonally restrained areas (OIDRA) for characterizing convective organization. *Geoscientific Model Development*, 17, 7795-7814. [https://gmd.copernicus.org/articles/17/7795/2024/](https://gmd.copernicus.org/articles/17/7795/2024/)
+*   **Description**: Organization Index based on Distance and Relative Area. A new index developed to fulfill robustness criteria against noise and varying object characteristics.
+*   **Reference**: Mandorli, G., & Stubenrauch, C. J. (2024). Assessment of object-based indices to identify convective organization. *Geoscientific Model Development*, 17(21), 7795-7813. DOI: 10.5194/gmd-17-7795-2024
+
+### Not included in this software:
+
+#### A. LWOI (localized wavelet-based organization index)
+*   **Description**: A refined version of the wavelet-based organization index (WOI), which is able to characterize the scale, the intensity and anisotropy of convection based on rain rates alone. Exploiting the localization of wavelets both in space and time, we define a localized version of the convective organization index (LWOI). 
+*   **Reference**: Brune, S., et al. (2020). Observations and high-resolution simulations of convective precipitation organization over the tropical Atlantic. *Quarterly Journal of the Royal Meteorological Society*, 146(729), 1545-1563. DOI: 10.1002/qj.3751
 
 ## Usage
 

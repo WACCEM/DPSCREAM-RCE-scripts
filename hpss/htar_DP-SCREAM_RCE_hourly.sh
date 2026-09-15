@@ -9,7 +9,7 @@
 #tmux ls
 #tmux attach -t hpss_dpscream
 
-icase="dx1km_L150km_RCE02_gpu"  #experiment case name
+icase="dx1km_L600km_RCE03_gpu"  #experiment case name
 
 indir="/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/${icase}/run" 
 archdir="/home/projects/m1867/RCE/DP-SCREAM/${icase}"
@@ -30,7 +30,7 @@ save_script=true
 #save_havg=false  #not yet implemented in this script.
 
 iyear=2000
-months=(01 02 03 04 05 06 07)
+months=(01 02 03)
 
 echo "Creating HPSS archive directory if it doesn't exist..."
 hsi "mkdir -p ${archdir}"

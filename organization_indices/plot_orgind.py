@@ -19,113 +19,126 @@ import glob
 import numpy as np
 import pandas as pd
 import xarray as xr
+import sys
+import matplotlib
+_interactive = hasattr(sys, 'ps1') or 'ipykernel' in sys.modules
+if not _interactive:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import bottleneck as bn
+import matplotlib.dates as mdates
+
+from ks_pkg.plot_settings import init_style
+init_style()
+
+import sys
+sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
+from rce_tools.plotting import case_info, add_dual_time_axes, get_case_info
+
 
 # %%
-# ==============================================================================
 # USER CONFIGURATION
 # ==============================================================================
+case_list = ["RCE02_dx1km_gpu","RCE00_dx1km_600x600km", "RCE01_dx1km_600x600km" ]
 
-case_info = {
-    # "dx1km_L150km_RCE01_gpu": {
-    #     "model": "DP-SCREAM",
-    #     "date_range": "2000-01-01_to_2000-04-30",
-    #     "desc": "RCEMIP IC",
-    # },
-    # "dx1km_L150km_RCE02_gpu": {
-    #     "model": "DP-SCREAM",
-    #     "date_range": "2000-01-01_to_2000-04-30",
-    #     "desc": "DP default IC",
-    # },
-    "RCE02_dx1km_gpu": {
-        "model": "DP-SCREAM",
-        "date_range": "2000-01-01_to_2000-03-15",
-        "desc": "DP EQ IC",
-    },
-    "dx1km_L600km_RCE03_gpu": {
-        "model": "DP-SCREAM",
-        "date_range": "2000-01-01_to_2000-03-01",
-        "desc": "DP default IC",
-    },
-    # "RCE03_150x150_1km": {
-    #     "model": "PINACLES",
-    #     "date_range": "2000-01-01_to_2000-04-10",
-    #     "desc": "DP EQ IC"
-    # },
-    # "RCE05_dx1km_150x150km": {
-    #     "model": "PINACLES",
-    #     "date_range": "2000-01-01_to_2000-02-25",
-    #     "desc": "PINACLES EQ IC"
-    # },
-    # "RCE06_dx1km_150x150km": {
-    #     "model": "PINACLES",
-    #     "date_range": "2000-01-01_to_2000-02-24",
-    #     "desc": "RCEMIP IC"
-    # },
-    "RCE00_dx1km_600x600km": {
-        "model": "PINACLES",
-        "date_range": "2000-01-01_to_2000-03-01",
-        "desc": "RCEMIP IC"
-    },
-    "RCE01_dx1km_600x600km": {
-        "model": "PINACLES",
-        "date_range": "2000-01-01_to_2000-02-14",
-        "desc": "PINACLES EQ IC"
-    },
-}
-
-case_list = list(case_info.keys())
+base_date= "2000-01-01"
 
 
-# Number of OLR snapshots to plot per case
-N_SNAPSHOTS = 5
 
 # %%
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
+date_range = []
 
-def get_case_info(case_name):
-    """
-    Returns the simulation type, OLR variable name, input NetCDF file path, 
-    and output Pickle file path for a given case.
-    """
-    if case_name not in case_info:
-        raise KeyError(f"Case {case_name} not found in case_info dictionary.")
-        
-    info = case_info[case_name]
-    sim_type = info["model"]
-    date_range = info.get("date_range", "*")
+for ic, icase in enumerate(case_list):
+    if(icase == "RCE02_dx1km_gpu"):
+        date_range.append("2000-01-01_to_2000-03-15")
+    elif(icase == "RCE00_dx1km_600x600km"):
+        date_range.append("2000-01-01_to_2000-03-01")
+    elif(icase == "RCE00_dx1km_600x600km"):
+        date_range.append("2000-01-01_to_2000-02-14")
 
-    if sim_type == "DP-SCREAM":
-        olr_var = "LW_flux_up_at_model_top"
-    elif sim_type == "PINACLES":
-        olr_var = "toa_lw_up"
+
+# %%
+# 1. PLOT TIME SERIES OF ORGANIZATION INDEX
+# --------------------------------------------------------------------------
+# The organization index to plot in the time series comparison
+# Typical options: 'Iorg', 'SCAI', 'MCAI', 'COP', 'ROME', 'Lorg', 'OIDRA'
+TARGET_INDEX = 'OIDRA'
+print(f"\nGenerating time series plot for {TARGET_INDEX}...")
+SAVE_PLOTS = False
+lwide = 3.0
+# Optional: resample / smooth the time series before plotting.
+# Set to None to plot every time point.  Examples: "1D", "6h", "1h"
+resample_freq = "6h"
+
+fig_ts, ax_ts = plt.subplots(1, 1, figsize=(14, 5))
+
+
+for i, case_name in enumerate(case_list):
+    sim_type, _, _, pkl_file = get_case_info(case_name)
+    
+    if os.path.exists(pkl_file):
+        print(f"  Loading organization indices for {case_name} from {pkl_file}")
+        try:
+            df_indices = pd.read_pickle(pkl_file)
+            
+            if TARGET_INDEX in df_indices.columns:
+                s_plot = df_indices.set_index('time')[TARGET_INDEX]
+                if resample_freq:
+                    s_plot = s_plot.resample(resample_freq).mean()
+                    
+                _=ax_ts.plot(
+                    s_plot.index, 
+                    s_plot.values, 
+                    color=case_info[case_name]['color'], 
+                    label=f"{case_info[case_name]['model']} {case_info[case_name]['desc']}", 
+                    alpha=0.8, 
+                    linewidth=lwide
+                )
+            else:
+                print(f"  [WARNING] Index '{TARGET_INDEX}' not found in {pkl_file}")
+        except Exception as e:
+            print(f"  [ERROR] Failed to read {pkl_file}: {e}")
     else:
-        raise ValueError(f"Unknown sim type '{sim_type}' for case: {case_name}")
+        print(f"  [WARNING] Pickle file not found for {case_name}:\n    {pkl_file}")
 
-    in_dir = f'/pscratch/sd/w/wcmca1/{sim_type}/{case_name}/org_ind'
-    
-    # Locate NetCDF file
-    nc_file = f'{in_dir}/{case_name}_{olr_var}_{date_range}.nc'
-    if '*' in nc_file:
-        matches = glob.glob(nc_file)
-        if matches:
-            nc_file = matches[0]
+_=add_dual_time_axes(ax_ts, base_date=base_date)
+_=ax_ts.set_ylabel(TARGET_INDEX, fontsize=11)
+_=ax_ts.yaxis.label.set_color('k')
 
-    # Expected Pickle file path
-    pkl_file = f'/global/cfs/cdirs/m1867/RCE/org_ind/df_{sim_type}_{case_name}_periodic_hourly.pkl'
-    
-    return sim_type, olr_var, nc_file, pkl_file
+# Set appropriate y-limits depending on the index
+if TARGET_INDEX == 'Iorg':
+    _=ax_ts.set_ylim(0, 1)
+elif TARGET_INDEX in ['SCAI', 'MCAI']:
+    _=ax_ts.set_ylim(-7, 0)
+
+_=ax_ts.legend(loc='best', frameon=False, fontsize=10)
+_=ax_ts.grid(True, alpha=0.3)
+resample_label = f" ({resample_freq} mean)" if resample_freq else ""
+_=plt.title(f'Organization Index Time Series Comparison: {TARGET_INDEX}{resample_label}', fontsize=12)
+_=plt.tight_layout()
+
+if SAVE_PLOTS:
+    out_name = f'{TARGET_INDEX}_timeseries_comparison.png'
+    plt.savefig(out_name, bbox_inches='tight', dpi=150)
+    print(f"✓ Saved time series plot to {out_name}")
+
+try:
+    plt.show()
+except Exception:
+    pass
+
+fig_ts.clf()
+plt.close(fig_ts)
 
 # %%
-# 1. PLOT OLR SNAPSHOTS
+# 2. PLOT OLR SNAPSHOTS
 # --------------------------------------------------------------------------
 print(f"Comparing cases: {', '.join(case_list)}\n")
 print("Generating OLR snapshot plots...")
 # Set to True to save the plots to PDF files
 SAVE_PLOTS = False
+
+# Number of OLR snapshots to plot per case
+N_SNAPSHOTS = 5
 
 # Target dates and times to plot (up to 5). The figure will always have 5 subplot panels.
 TARGET_DATES = ['2000-01-01 00:00',
@@ -221,68 +234,10 @@ for case_name in case_list:
         plt.show()
     except Exception as e:
         print("Note: plt.show() failed, which is expected if no display is attached. Saved plot instead.")
+        
+    fig_olr.clf()
+    plt.close(fig_olr)
 
-# %%
-# 2. PLOT TIME SERIES OF ORGANIZATION INDEX
-# --------------------------------------------------------------------------
-# The organization index to plot in the time series comparison
-# Typical options: 'Iorg', 'SCAI', 'MCAI', 'COP', 'ROME', 'Lorg'
-TARGET_INDEX = 'ROME'
-print(f"\nGenerating time series plot for {TARGET_INDEX}...")
-SAVE_PLOTS = False
 
-fig_ts, ax_ts = plt.subplots(1, 1, figsize=(14, 5))
-
-# Distinct colors and linestyles for different cases
-colors = ['k', 'orange', 'r', 'b', 'g', 'purple', 'magenta']
-
-for i, case_name in enumerate(case_list):
-    sim_type, _, _, pkl_file = get_case_info(case_name)
-    
-    if os.path.exists(pkl_file):
-        print(f"  Loading organization indices for {case_name} from {pkl_file}")
-        try:
-            df_indices = pd.read_pickle(pkl_file)
-            
-            if TARGET_INDEX in df_indices.columns:
-                _=ax_ts.plot(
-                    df_indices['time'], 
-                    bn.move_mean(df_indices[TARGET_INDEX], window=6, min_count=1), 
-                    color=colors[i % len(colors)], 
-                    label=f"{case_info[case_name]['model']} {case_info[case_name]['desc']}", 
-                    alpha=0.8, 
-                    linewidth=3
-                )
-            else:
-                print(f"  [WARNING] Index '{TARGET_INDEX}' not found in {pkl_file}")
-        except Exception as e:
-            print(f"  [ERROR] Failed to read {pkl_file}: {e}")
-    else:
-        print(f"  [WARNING] Pickle file not found for {case_name}:\n    {pkl_file}")
-
-_=ax_ts.set_xlabel('Time', fontsize=11)
-_=ax_ts.set_ylabel(TARGET_INDEX, fontsize=11)
-_=ax_ts.yaxis.label.set_color('k')
-
-# Set appropriate y-limits depending on the index
-if TARGET_INDEX == 'Iorg':
-    _=ax_ts.set_ylim(0, 1)
-elif TARGET_INDEX in ['SCAI', 'MCAI']:
-    _=ax_ts.set_ylim(-7, 0)
-
-_=ax_ts.legend(loc='best', frameon=False, fontsize=10)
-_=ax_ts.grid(True, alpha=0.3)
-_=plt.title(f'Organization Index Time Series Comparison: {TARGET_INDEX}', fontsize=12)
-_=plt.tight_layout()
-
-if SAVE_PLOTS:
-    out_name = f'{TARGET_INDEX}_timeseries_comparison.png'
-    plt.savefig(out_name, bbox_inches='tight', dpi=150)
-    print(f"✓ Saved time series plot to {out_name}")
-
-try:
-    plt.show()
-except Exception:
-    pass
 
 # %%

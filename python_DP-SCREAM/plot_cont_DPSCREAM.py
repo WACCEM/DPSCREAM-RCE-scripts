@@ -314,11 +314,12 @@ if savefig_mean:
     fig1.savefig(out_mean, dpi=dpi, bbox_inches="tight")
     print(f"  Saved: {out_mean}")
 
-if not _interactive:
-    plt.close(fig1)
-else:
-    print("  Time-mean plot displayed interactively.")
+try:
     plt.show()
+except Exception:
+    pass
+fig1.clf()
+plt.close(fig1)
 # Free the large data array; the rendered figure stays displayed.
 del im1, ax1, cb1
 
@@ -383,12 +384,12 @@ if(doplot):
         fig2.savefig(out_snap, dpi=dpi, bbox_inches="tight")
         print(f"  Saved: {out_snap}")
 
-    plt.show()
-    if not _interactive:
-        plt.close(fig2)
-    else:
-        print("  Snapshot plot displayed interactively.")
+    try:
         plt.show()
+    except Exception:
+        pass
+    fig2.clf()
+    plt.close(fig2)
     # Free snapshot array and axes handles.
     del field_snap, im2, ax2, cb2
 
@@ -559,10 +560,12 @@ if savefig_anim:
         print("  Install imageio-ffmpeg to get MP4: pip install imageio imageio-ffmpeg")
 
 
-if not _interactive:
-    plt.close(fig3)
-else:
+try:
     plt.show()
+except Exception:
+    pass
+fig3.clf()
+plt.close(fig3)
 
 # Free animation object and axes handles (the rendered frames stay displayed).
 del anim, im3, ax3, cb3

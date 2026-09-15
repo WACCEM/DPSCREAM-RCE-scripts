@@ -28,9 +28,9 @@ icase   = "RCE02_dx1km_gpu"
 in_dir  = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped"
 out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/mcstrack"
 
-# Day range to process
-day_start = 0
-day_end   = 43
+# Date-range timestamps (inclusive, YYYY-MM-DD)
+ts_start = "2000-01-01"
+ts_end   = "2000-03-15"
 
 # Variables and their file name patterns
 var_patterns = {
@@ -42,6 +42,12 @@ var_patterns = {
 # Base time for filename and coordinates (assuming idealized runs start at 2000-01-01)
 base_time = datetime.datetime(2000, 1, 1, 0, 0, 0)
 
+# Calculate simulation day_start and day_end
+dt_start = datetime.datetime.strptime(ts_start, "%Y-%m-%d")
+dt_end   = datetime.datetime.strptime(ts_end, "%Y-%m-%d")
+day_start = (dt_start - base_time).days
+day_end   = (dt_end - base_time).days
+
 # %%
 # =============================================================================
 
@@ -50,6 +56,7 @@ os.makedirs(out_dir, exist_ok=True)
 
 print(f"Input dir : {in_dir}")
 print(f"Output dir: {out_dir}")
+print(f"Date range: {ts_start} to {ts_end}")
 print(f"Day range : {day_start} – {day_end}")
 
 # Find all dates available by looking at the rain_rate variable

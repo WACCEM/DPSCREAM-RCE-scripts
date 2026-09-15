@@ -26,7 +26,7 @@ import h5py
 # CONFIGURATION
 # =============================================================================
 
-icase   = "RCE01_dx1km_600x600km"
+icase   = "RCE00_dx1km_600x600km"
 
 in_dir  = (
     f"/pscratch/sd/w/wcmca1/PINACLES/"
@@ -40,7 +40,7 @@ minute_pattern = "*m"
 
 # Day range to process
 day_start = 0
-day_end   = 43
+day_end   = 59
 
 # Base time for filename and coordinates (assuming idealized runs start at 2000-01-01)
 base_time = datetime.datetime(2000, 1, 1, 0, 0, 0)

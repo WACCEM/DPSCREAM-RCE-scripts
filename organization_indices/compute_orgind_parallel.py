@@ -164,11 +164,12 @@ def main():
     print(f"\nPreparing tasks (converting to binary images)...")
     tasks = []
     
-    # We pre-extract the binary image (1/0) for each time step.
-    # Passing numpy arrays to multiprocessing workers is very efficient.
     for time_value in time_values:
         ds_time = olr_data.sel(time=time_value)
-        image = np.where(ds_time.data < OLR_THRESHOLD, 1, 0).astype(int)
+        # Convert to binary image based on OLR threshold
+        # 1 = deep convection (OLR < threshold), 0 = no deep convection
+        # Note: We enforce ds_time.data > 10.0 to ignore 0.0 values, which are remapping boundary artifacts
+        image = np.where((ds_time.data < OLR_THRESHOLD) & (ds_time.data > 10.0), 1, 0).astype(int)
         tasks.append((time_value, image, USE_PERIODIC))
         
     # ------------------------------------------------------------------------

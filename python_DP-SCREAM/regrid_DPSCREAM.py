@@ -25,14 +25,14 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "dx1km_L600km_RCE03_gpu"
-varname    = "LW_flux_up_at_model_top" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
+icase      = "RCE02_dx1km_gpu"
+varname    = "diag_equiv_reflectivity_max" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
 #diag_equiv_reflectivity_max
 # File naming parameters
 stats_type = "INSTANT"
 #stats_type = "AVERAGE"
 
-file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
    #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
    #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
@@ -49,7 +49,7 @@ out_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped")
 
 # Date-range timestamps (inclusive, YYYY-MM-DD) to process.  Must match the timestamps in the input file names.
 ts_start = "2000-01-01"
-ts_end   = "2000-03-06"
+ts_end   = "2000-03-15"
 
 
 # ESMF weight file produced by ESMF_RegridWeightGen.
