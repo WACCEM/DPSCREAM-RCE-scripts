@@ -11,6 +11,7 @@ simulations of idealized **Radiative-Convective Equilibrium (RCE)** cases and an
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
 - [Requirements](#requirements)
+- [MCS Tracking](#mcs-tracking)
 - [Simulations](#simulations)
   - [Running](#running)
   - [Post-Processing](#post-processing)
@@ -41,7 +42,7 @@ DP-SCREAM/
 ├── giobiagioli_organization_indices/     # Original reference code for computing organization indices
 ├── hpss/                                 # Bash scripts for archiving simulation data to HPSS
 ├── input/                                # Initial conditions and forcing profile files (e.g. RCEMIP)
-├── mcs/                                  # Scripts to format and prepare outputs for MCS tracking
+├── mcs/                                  # CCS-tracking configs, preparation, plotting, and animation scripts
 ├── nco/                                  # Bash scripts utilizing NCO for regridding or data manipulation
 ├── organization_indices/                 # Python scripts and notebooks for computing organization indices
 ├── python_DP-SCREAM/                     # Python scripts and Jupyter notebooks for post-processing
@@ -81,6 +82,40 @@ conda activate dpscream_analysis
 - **Python:** 3.11.14
 - **Data & I/O:** `xarray` (2025.10.1), `numpy` (2.2.6), `scipy` (1.16.2), `netCDF4` (1.7.3), `h5py` (3.16.0)
 - **Visualization:** `matplotlib` (3.10.7), `cartopy` (0.25.0)
+
+---
+
+## MCS Tracking
+
+The `mcs/` directory contains PyFLEXTRKR inputs and utilities for tracking cold
+cloud systems (CCSs) in DP-SCREAM and PINACLES output using outgoing longwave
+radiation (OLR, converted to brightness temperature) and precipitation.
+
+`mcs/config/config_ccs_olr_DPSCREAM.yml` and
+`mcs/config/config_ccs_olr_PINACLES.yml` are MCSMIP-derived configurations for
+the DP-SCREAM RCE02 and PINACLES RCE01 simulations. Their relaxed MCS Tb and
+precipitation-feature thresholds retain broadly defined precipitating CCSs as
+MCSs, making them available in final track-statistics files and `mcstracking/`
+pixel-mask files. The input and output paths are specific to the corresponding
+datasets on Perlmutter.
+
+`make_mcs_animation.py` generates CCS quicklook frames and an FFmpeg animation.
+Run it from `mcs/` and select a registered source:
+
+```bash
+cd mcs
+python make_mcs_animation.py DPSCREAM
+python make_mcs_animation.py PINACLES
+```
+
+To add a data source, add a `SOURCES` entry in the driver with its `config_file`,
+tracking-output `root_dir`, `title_prefix`, `start_date`, and `end_date`. The
+driver locates bundled configuration files relative to itself, so it works from
+any clone location.
+
+`plot_subset_tbpf_mcs_tracks_1panel_demo.py` is derived from the PyFLEXTRKR
+one-panel plotting demo. For these CCS quicklooks it uses a 1 mm h⁻¹ minimum
+precipitation display level and a 1 km MCS-perimeter thickness.
 
 ---
 
