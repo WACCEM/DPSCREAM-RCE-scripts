@@ -197,9 +197,12 @@ out_plot_name = os.path.join(out_dir, f"compare_{cases_str}.{varname}.havg_profi
 if(save_fig):
     _=plt.savefig(out_plot_name, dpi=150, bbox_inches='tight')
     print(f"Saved plot to: {out_plot_name}")
+
+try:
     plt.show()
-else:
-    plt.show()
+except Exception:
+    pass
+plt.close(fig)
 
 # %%
 # ---------------------------------------------------------------------------
@@ -270,8 +273,12 @@ if len(results) == 2:
     if(save_fig):
         _=plt.savefig(out_diff_name, dpi=150, bbox_inches='tight')
         print(f"Saved difference plot to: {out_diff_name}")
+
+    try:
         plt.show()
-    else:
-        plt.show()
+    except Exception:
+        pass
+    fig_diff.clf()
+    plt.close(fig_diff)
 
 # %%

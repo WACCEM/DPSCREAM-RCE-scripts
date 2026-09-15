@@ -38,9 +38,9 @@ mapdir="/global/cfs/cdirs/wcm_shr/DP-SCREAM/remap"
 #mapdir="/global/cfs/cdirs/m1867/MPASinput/ESMFremapping"
 
 
-inres="DPSCREAM_RCE_dx1km_150x150km_plus"
-outres="PINACLES_YX_dx1km_150x150km"
-remap_method="bilinear"
+inres="DPSCREAM_RCE_dx1km_600x600km"
+outres="PINACLES_YX_dx1km_600x600km"
+remap_method="patch"
 #remap_method:  bilinear | patch | nearestdtos | neareststod | conserve | conserve2nd
 
 srcfile="${mapdir}/scrip_${inres}.nc"
@@ -71,16 +71,15 @@ idate=$(date "+%Y-%m-%d-%H%M")
 #There exist destination cells (e.g. id=1) which don't overlap with any source cell
 #see https://github.com/CDAT/cdms/issues/110    
 
-echo "${options}"
-
+#echo "${options}"
 
 #generate mapping file
 echo "running  $ESMFBIN_PATH/ESMF_RegridWeightGen"
 
 #$ESMFBIN_PATH/ESMF_RegridWeightGen --ignore_unmapped -s $srcfile -d $dstfile -w $mapfile -m $remap_method 
 
-$ESMFBIN_PATH/ESMF_RegridWeightGen --ignore_unmapped -s $srcfile -d $dstfile -w $mapfile -m $remap_method  \
-     --src_regional --dst_regional
+$ESMFBIN_PATH/ESMF_RegridWeightGen -s $srcfile -d $dstfile -w $mapfile -m $remap_method  \
+     --src_regional --dst_regional --extrap_method neareststod #--ignore_unmapped
 
 #$ESMFBIN_PATH/ESMF_RegridWeightGen --ignore_unmapped -s $srcfile -d $dstfile -w $mapfile -m $remap_method  \
 #    --src_regional --dst_regional --src_loc center --dst_loc center 

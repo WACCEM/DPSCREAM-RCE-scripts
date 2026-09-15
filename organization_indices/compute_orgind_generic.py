@@ -175,7 +175,8 @@ def process_organization_indices(ds, time_coord='time', cut=173, periodic=True):
         
         # Convert to binary image based on OLR threshold
         # 1 = deep convection (OLR < threshold), 0 = no deep convection
-        image = np.where(ds_time.data < cut, 1, 0).astype(int)
+        # Note: We enforce ds_time.data > 10.0 to ignore 0.0 values, which are remapping boundary artifacts
+        image = np.where((ds_time.data < cut) & (ds_time.data > 10.0), 1, 0).astype(int)
         
         # Compute organization metrics
         if periodic:

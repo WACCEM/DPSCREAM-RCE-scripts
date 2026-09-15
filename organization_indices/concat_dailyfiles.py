@@ -34,11 +34,11 @@ from rce_tools.rce_utils import days_since_jan1_to_month_day, month_day_to_days_
 
 # Select model: 'DP-SCREAM' or 'PINACLES'
 MODEL = 'DP-SCREAM'
-case_name = "dx1km_L600km_RCE03_gpu"
+case_name = "RCE02_dx1km_gpu"
 igrid = "PINACLES_YX_dx1km_600x600km"
 # Date-range timestamps (inclusive, YYYY-MM-DD) for DP-SCREAM
 ts_start = "2000-01-01"
-ts_end   = "2000-03-01"
+ts_end   = "2000-03-15"
 
 # MODEL = 'PINACLES'
 # case_name = "RCE01_dx1km_600x600km"
@@ -71,7 +71,7 @@ if MODEL == 'PINACLES':
 if MODEL == 'DP-SCREAM':
     
     var_name  = "LW_flux_up_at_model_top"
-    output_type = "INSTANT"
+    output_type = "AVERAGE"
     in_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/remapped/"
     out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{case_name}/org_ind/"
     

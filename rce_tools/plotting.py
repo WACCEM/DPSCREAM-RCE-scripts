@@ -6,6 +6,24 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import AutoMinorLocator
 
+case_info = {
+    "RCE02_dx1km_gpu": {
+        "model": "DP-SCREAM",
+        "desc": "DP EQ IC",
+        "color": "Blue"
+    },
+     "RCE00_dx1km_600x600km": {
+        "model": "PINACLES",
+        "desc": "RCEMIP IC",
+        "color": "lightgreen"
+    },
+    "RCE01_dx1km_600x600km": {
+        "model": "PINACLES",
+        "desc": "PINACLES EQ IC",
+        "color": "green"
+    },
+}
+
 def _find_working_ffmpeg():
     """Return path to a ffmpeg binary that can encode h264, or None."""
     candidates = []
@@ -133,3 +151,121 @@ def plot_2d_field(ax, field_2d, X, Y, method, n_lev, cmap_name,
     ax.xaxis.set_minor_locator(AutoMinorLocator())
     ax.yaxis.set_minor_locator(AutoMinorLocator())
     return im
+
+
+def add_dual_time_axes(ax, base_date="2000-01-01", bottom_label=None):
+    """
+    Configure a time-series plot with dual x-axes:
+    - Primary (bottom) axis: Days since base_date
+    - Secondary (top) axis: MM-DD dates
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+        The axes object containing time-series data plotted against pandas timestamps
+    base_date : str or pd.Timestamp
+        The reference date for the primary axis (default: "2000-01-01")
+    bottom_label : str
+        Label for the bottom axis (default: "Days since {base_date}")
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    import pandas as pd
+    
+    base_dt = pd.to_datetime(base_date)
+    
+    if bottom_label is None:
+        bottom_label = f"Days since {base_dt.strftime('%Y-%m-%d')}"
+
+    def days_since_formatter(x, pos):
+        dt = mdates.num2date(x).replace(tzinfo=None)
+        days = (dt - base_dt).total_seconds() / 86400.0
+        return f"{int(days)}"
+
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(days_since_formatter))
+    ax.set_xlabel(bottom_label, fontsize=11)
+
+    secax = ax.secondary_xaxis('top')
+    secax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+    return secax
+
+
+def get_case_info(case_name):
+    """
+    Returns the simulation type, OLR variable name, input NetCDF file path, 
+    and output Pickle file path for a given case.
+    """
+    import glob
+    
+    if case_name not in case_info:
+        raise KeyError(f"Case {case_name} not found in case_info dictionary.")
+        
+    info = case_info[case_name]
+    sim_type = info["model"]
+    date_range = info.get("date_range", "*")
+
+    if sim_type == "DP-SCREAM":
+        olr_var = "LW_flux_up_at_model_top"
+    elif sim_type == "PINACLES":
+        olr_var = "toa_lw_up"
+    else:
+        raise ValueError(f"Unknown sim type '{sim_type}' for case: {case_name}")
+
+    in_dir = f'/pscratch/sd/w/wcmca1/{sim_type}/{case_name}/org_ind'
+    
+    # Locate NetCDF file
+    nc_file = f'{in_dir}/{case_name}_{olr_var}_{date_range}.nc'
+    if '*' in nc_file:
+        matches = glob.glob(nc_file)
+        if matches:
+            nc_file = matches[0]
+
+    # Expected Pickle file path
+    pkl_file = f'/global/cfs/cdirs/m1867/RCE/org_ind/df_{sim_type}_{case_name}_periodic_hourly.pkl'
+    
+    return sim_type, olr_var, nc_file, pkl_file
+
+
+def get_horiz_stats_file(case_name, vname, stats_type="INSTANT"):
+    """
+    Returns the path to the horizontal statistics NetCDF file for a given case.
+    Uses glob to find the file dynamically without needing hardcoded date ranges.
+    """
+    import glob
+    
+    if case_name not in case_info:
+        raise KeyError(f"Case {case_name} not found in case_info dictionary.")
+        
+    sim_type = case_info[case_name]["model"]
+    in_dir = f"/pscratch/sd/w/wcmca1/{sim_type}/{case_name}/havg"
+    
+    if sim_type == "DP-SCREAM":
+        pattern = f"{in_dir}/{case_name}.{vname}.havg.{stats_type}.*.nc"
+    elif sim_type == "PINACLES":
+        pattern = f"{in_dir}/{case_name}.{vname}.havg.*.nc"
+    else:
+        raise ValueError(f"Unknown sim type '{sim_type}'")
+        
+    matches = glob.glob(pattern)
+    if not matches:
+        return None
+    return matches[0]
+
+
+def to_pandas_series(ds, field, freq=None):
+    """Return a pandas Series with a DatetimeIndex, optionally resampled.
+
+    Uses xarray's resample (cftime-aware) before converting to a standard
+    pandas DatetimeIndex so that matplotlib date formatters work correctly
+    even when the file uses a non-standard calendar (e.g. noleap).
+    """
+    import pandas as pd
+    da = ds[field]
+    if freq is not None:
+        da = da.resample(time=freq).mean()
+    # Convert cftime (or numpy datetime64) time values to pandas Timestamps
+    times = pd.DatetimeIndex([
+        pd.Timestamp(t.year, t.month, t.day, t.hour, t.minute, t.second)
+        for t in da['time'].values
+    ])
+    return pd.Series(da.values, index=times)
