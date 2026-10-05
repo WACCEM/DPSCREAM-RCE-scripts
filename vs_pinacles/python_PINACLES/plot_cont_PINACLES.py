@@ -86,7 +86,7 @@ def _update(frame_idx):
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE03_150x150_1km"
+icase      = "RCE01_dx1km_600x600km"
 varname    = "toa_lw_up"
 crange_name = None
 
@@ -95,7 +95,7 @@ in_dir = (f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/cat_raw")
 
 # Day range to load (inclusive)
 day_start = 0
-day_end   = 30
+day_end   = 20
 
 # For 3-D variables (time, lev, lat, lon): choose which level index to plot.
 # Ignored for 2-D variables.
@@ -116,7 +116,7 @@ t0_date = pd.Timestamp("2000-01-01")
 # ---------------------------------------------------------------------------
 # Save flags and output paths
 # ---------------------------------------------------------------------------
-out_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/{icase}/plots"
+out_dir  = f"/pscratch/sd/w/wcmca1/PINACLES/plots"
 dpi = 150   # figure resolution for raster saves
 
 #variable setting
@@ -285,7 +285,7 @@ del im1, ax1, cb1
 # ===========================================================================
 # snapshot index (0-based index into the concatenated time axis)
 # ---------------------------------------------------------------------------
-doplot=True
+doplot=False
 if(doplot):
     print(f"\n--- Section 2: snapshot at time index ---")
     print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
@@ -364,14 +364,25 @@ savefig_anim  = True   # Section 3: save animation as MP4
 print(f"  select time index to plot, from 0 to {ds.sizes['time'] - 1}")
 print(f"  corresponding timestamp: {pd.Timestamp(ds['time'].values[0])} to {pd.Timestamp(ds['time'].values[-1])}")
 
-plot_st_day  = 46   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
+plot_st_day  = -1   # simulation day since t0_date (2000-01-01); day 46 = Feb 15
 plot_st_hour = 13
-plot_st_time = np.datetime64(t0_date + pd.Timedelta(days=plot_st_day, hours=plot_st_hour))
+
+if(plot_st_day > -1):
+    plot_st_time = np.datetime64(t0_date + pd.Timedelta(days=plot_st_day, hours=plot_st_hour))
+else:
+    plot_st_time = ds['time'].values[0]
+
+
 anim_t_start = np.searchsorted(ds['time'].values, plot_st_time)
 
-plot_ed_day  = 55   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
+plot_ed_day  = -1   # simulation day since t0_date (2000-01-01); day 76 = Mar 17
 plot_ed_hour = 12
-plot_ed_time = np.datetime64(t0_date + pd.Timedelta(days=plot_ed_day, hours=plot_ed_hour))
+
+if(plot_ed_day > -1):
+    plot_ed_time = np.datetime64(t0_date + pd.Timedelta(days=plot_ed_day, hours=plot_ed_hour))
+else:
+    plot_ed_time = ds['time'].values[-1]
+
 anim_t_end = np.searchsorted(ds['time'].values, plot_ed_time)
 
 #anim_t_start = 0
