@@ -12,7 +12,7 @@ This document summarizes the configuration, output variables, and characteristic
 ## Computational Configuration
 *   **Machine:** pm-gpu (NERSC Perlmutter GPU)
 *   **Compiler:** gnugpu
-*   **Processors:** 64 processes
+*   **Processors:** 64 processes, 4 MPI ranks per node using 16 GPU nodes
 *   **Walltime:** 03:30:00
 *   **Source Code:** `/global/cfs/cdirs/wcm_code/ksa/E3SM/code_tests/8426cb31c7_clone`
 *   **Simulation Length per Job:** 5 days

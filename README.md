@@ -183,7 +183,7 @@ See another code project for configuring/running the PINACLES model for RCE (htt
 | [RCE00_dx1km_600x600km](docs/PINACLES_RCE00_dx1km.md) (RCE_600x600_1km) | 600×600 km | 1 km | SCREAM linear profile | 60-day run. |
 | [**RCE01_dx1km_600x600km**](docs/PINACLES_RCE01_dx1km.md) | 600×600 km | 1 km | RCE03 profile | 44-day run. `max_total_ni` added; 2D slice includes more microphysics vars. |
 | RCE02_dx1km_600x600km | 600×600 km | 1 km | RCE03 profile | 24-day run. |
-
+| dx1km_L600km_RCE03_gpu | 600×600 km | 1 km | PINACLES_RCE03_150x150_1km profile | 24-day run. |
 
 ---
 

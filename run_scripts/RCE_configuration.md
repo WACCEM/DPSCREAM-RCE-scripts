@@ -1609,3 +1609,29 @@ $dBZ = 10 \cdot \log_{10} \left( \frac{Z_e}{1 \text{ mm}^6/\text{m}^3} \right)$
 Since you are taking the ratio of two quantities that have the exact same physical units ($mm^6/m^3$ divided by a reference $1 \text{ mm}^6/\text{m}^3$), the resulting $dBZ$ value is a **dimensionless ratio**. 
 
 In the NetCDF/CF metadata conventions used by Earth system models like E3SM/SCREAM, the standard string for any dimensionless variable (such as fractions, pure ratios, or logarithmic scales like decibels) is simply `"1"`. So, the unit `1` here means that the model is outputting dimensionless dBZ values, rather than the raw $mm^6/m^3$ linear values.
+
+---
+
+## Computational Cost and Storage Estimates
+
+Based on the timing profile for a 5-day `dx1km_L600km_RCE03_gpu` simulation on Perlmutter (using 64 MPI tasks, i.e., 16 GPU nodes), the following estimates apply for a **30-day simulation** with high-frequency output (10 minutes instead of 1 hour) and twice the number of saved variables.
+
+### Cost Estimate (GPU Node-Hours)
+*Note: Timing profiles indicate that file I/O currently takes ~10-14% of the total runtime. The following estimate assumes this I/O overhead will scale linearly. Writing 12× more data per day will likely become a major bottleneck on the `$SCRATCH` filesystem.*
+- **Baseline 5-day Runtime:** ~6,731 seconds (~1.87 hours) wall-clock time.
+- **Baseline 30-day Compute Cost:** 16 nodes × 1.87 hours × 6 = ~180 GPU node-hours. 
+- **Projected I/O Overhead:** I/O currently takes ~14% of runtime (or ~25 node-hours for a 30-day run). Scaling this by 12× (6× frequency, 2× variables) increases the I/O cost to ~300 node-hours.
+- **New Estimate for 30 days:** ~155 compute node-hours + ~300 I/O node-hours = **~455 GPU node-hours**.
+
+### Storage Requirement
+Current daily output sizes are approximately:
+- `INSTANT`: ~51 GB/day
+- `AVERAGE`: ~35 GB/day
+- **Total:** ~86 GB/day
+
+With the proposed output changes:
+- **10-minute frequency:** 6× more snapshots.
+- **Twice as many variables:** 2× more storage per snapshot.
+- **Combined scale factor:** 6 × 2 = 12× more storage per day.
+- **New daily storage:** 86 GB/day × 12 = **1,032 GB/day (~1.03 TB/day)**.
+- **Total storage for 30 days:** 1.03 TB/day × 30 days = **~31 TB**.

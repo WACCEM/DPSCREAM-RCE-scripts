@@ -84,12 +84,12 @@ def _update(frame_idx):
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "dx1km_L150km_RCE01_gpu" #"RCE01_dx1km_gpu_branch"
+icase      = "RCE02_dx1km_gpu" #"RCE01_dx1km_gpu_branch"
 varname    = "LW_flux_up_at_model_top"
 crange_name = None
 # File naming parameters (must match regrid_DPSCREAM.py output convention)
 frequency  = "nhours_x1"
-dstgrid    = "PINACLES_YX_dx1km_150x150km"
+dstgrid    = "PINACLES_YX_dx1km_600x600km"
 #history file stats type; will be set and overwritten below for know variables
 stats_type = "INSTANT"
 #stats_type = "AVERAGE"
@@ -113,8 +113,8 @@ iyear = 2000
 #start_day = 90  # April 1st in noleap
 #end_day   = 99  # April 10th in noleap
 
-start_day = 100  # 
-end_day   = 110  #
+start_day = 0  # 
+end_day   = 20  #
 m_start, d_start = days_since_jan1_to_month_day(start_day, iyear, calendar="noleap")
 m_end, d_end     = days_since_jan1_to_month_day(end_day, iyear, calendar="noleap")
 ts_start = f"{iyear}-{m_start:02d}-{d_start:02d}"
@@ -329,8 +329,8 @@ del im1, ax1, cb1
 # ===========================================================================
 # snapshot index (0-based index into the concatenated time axis)
 # ---------------------------------------------------------------------------
-doplot=True
-savefig_snap  = True   # Section 2: save snapshot figure as PDF
+doplot=False
+savefig_snap  = False   # Section 2: save snapshot figure as PDF
 
 if(doplot):
     print(f"\n--- Section 2: snapshot at time index ---")

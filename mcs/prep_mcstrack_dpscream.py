@@ -24,9 +24,9 @@ import xarray as xr
 # CONFIGURATION
 # =============================================================================
 
-icase   = "RCE02_dx1km_gpu"
+icase   = "dx1km_L600km_RCE03_gpu"
 in_dir  = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/remapped"
-out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/mcstrack"
+out_dir = f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/mcstrack/input"
 
 # Date-range timestamps (inclusive, YYYY-MM-DD)
 ts_start = "2000-01-01"
@@ -134,12 +134,18 @@ for fpath in all_sample_files:
             if 'time' in da.coords:
                 da = da.drop_vars('time')
             
+            # Convert units for rain_rate from m/s to mm/h if needed
+            if out_var == "rain_rate" and da.attrs.get("units", "") == "m/s":
+                orig_attrs = da.attrs.copy()
+                da = da * 3600000.0
+                da.attrs = orig_attrs
+            
             ds_out[out_var] = da
             
             # Update specific attributes for uniformity
             if out_var == "rain_rate":
                 ds_out[out_var].attrs["long_name"] = "hourly precipitation rate"
-                ds_out[out_var].attrs["units"] = "mm/h" # precip_total_surf_mass_flux is already mm/hour
+                ds_out[out_var].attrs["units"] = "mm/h"
             elif out_var == "toa_lw_up":
                 ds_out[out_var].attrs["long_name"] = "Upward longwave flux at TOA"
                 ds_out[out_var].attrs["units"] = "W/m2"

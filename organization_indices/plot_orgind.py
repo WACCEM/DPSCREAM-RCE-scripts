@@ -32,13 +32,13 @@ init_style()
 
 import sys
 sys.path.append("/global/cfs/cdirs/wcm_code/ksa/DP-SCREAM")
-from rce_tools.plotting import case_info, add_dual_time_axes, get_case_info
+from rce_tools.plotting import case_info, add_dual_time_axes, get_case_info, figdir_root
 
 
 # %%
 # USER CONFIGURATION
 # ==============================================================================
-case_list = ["RCE02_dx1km_gpu","RCE00_dx1km_600x600km", "RCE01_dx1km_600x600km" ]
+case_list = ["dx1km_L600km_RCE03_gpu","RCE00_dx1km_600x600km", "RCE01_dx1km_600x600km" ]
 
 base_date= "2000-01-01"
 
@@ -49,6 +49,8 @@ date_range = []
 
 for ic, icase in enumerate(case_list):
     if(icase == "RCE02_dx1km_gpu"):
+        date_range.append("2000-01-01_to_2000-03-15")
+    elif(icase == "dx1km_L600km_RCE03_gpu"):
         date_range.append("2000-01-01_to_2000-03-15")
     elif(icase == "RCE00_dx1km_600x600km"):
         date_range.append("2000-01-01_to_2000-03-01")
@@ -61,9 +63,9 @@ for ic, icase in enumerate(case_list):
 # --------------------------------------------------------------------------
 # The organization index to plot in the time series comparison
 # Typical options: 'Iorg', 'SCAI', 'MCAI', 'COP', 'ROME', 'Lorg', 'OIDRA'
-TARGET_INDEX = 'OIDRA'
+TARGET_INDEX = 'Lorg'
 print(f"\nGenerating time series plot for {TARGET_INDEX}...")
-SAVE_PLOTS = False
+SAVE_PLOTS = True
 lwide = 3.0
 # Optional: resample / smooth the time series before plotting.
 # Set to None to plot every time point.  Examples: "1D", "6h", "1h"
@@ -117,9 +119,10 @@ _=plt.title(f'Organization Index Time Series Comparison: {TARGET_INDEX}{resample
 _=plt.tight_layout()
 
 if SAVE_PLOTS:
-    out_name = f'{TARGET_INDEX}_timeseries_comparison.png'
-    plt.savefig(out_name, bbox_inches='tight', dpi=150)
-    print(f"✓ Saved time series plot to {out_name}")
+    out_name = f'{TARGET_INDEX}_timeseries_comparison.pdf'
+    out_path = f'{figdir_root}/org_ind/{out_name}'
+    plt.savefig(out_path, bbox_inches='tight', dpi=150)
+    print(f"✓ Saved time series plot to {out_path}")
 
 try:
     plt.show()
@@ -135,7 +138,7 @@ plt.close(fig_ts)
 print(f"Comparing cases: {', '.join(case_list)}\n")
 print("Generating OLR snapshot plots...")
 # Set to True to save the plots to PDF files
-SAVE_PLOTS = False
+SAVE_PLOTS = True
 
 # Number of OLR snapshots to plot per case
 N_SNAPSHOTS = 5
@@ -145,6 +148,7 @@ TARGET_DATES = ['2000-01-01 00:00',
     '2000-01-15 00:00',
     '2000-02-01 12:00',
     '2000-02-15 00:00',
+    '2000-03-01 00:00',
 ]
 
 for case_name in case_list:
@@ -227,8 +231,9 @@ for case_name in case_list:
     
     if SAVE_PLOTS:
         out_name = f'olr_snapshots_{case_name}.pdf'
-        plt.savefig(out_name, bbox_inches='tight', dpi=150)
-        print(f"✓ Saved OLR snapshots to {out_name}")
+        out_path = f'{figdir_root}/org_ind/{out_name}'
+        plt.savefig(out_path, bbox_inches='tight', dpi=150)
+        print(f"✓ Saved OLR snapshots to {out_path}")
     
     try:
         plt.show()

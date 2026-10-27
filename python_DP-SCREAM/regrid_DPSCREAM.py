@@ -25,21 +25,25 @@ import glob
 # ---------------------------------------------------------------------------
 # User configuration
 # ---------------------------------------------------------------------------
-icase      = "RCE02_dx1km_gpu"
-varname    = "diag_equiv_reflectivity_max" # "precip_total_surf_mass_flux" #"LW_flux_up_at_model_top"
-#diag_equiv_reflectivity_max
+icase      = "dx1km_L600km_RCE03_gpu"
+varname    = "precip_total_surf_mass_flux"
+ # "precip_total_surf_mass_flux"  raw average input
+ #  #"LW_flux_up_at_model_top" , raw instantanous input
+#diag_equiv_reflectivity_max  , processed input
 # File naming parameters
-stats_type = "INSTANT"
-#stats_type = "AVERAGE"
+#stats_type = "INSTANT"
+stats_type = "AVERAGE"
 
-file_type="proc" # 'raw' for the direct model output, or 'proc' for post-processed files, 
+file_type="raw" # 'raw' for the direct model output, or 'proc' for post-processed files, 
    #this is used to construct the file name pattern for searching the input files to be concatenated
    #"cp" for cold-pool diagnostics with multiple variables in the same file: cp_depth, cp_base, cp_intensity, buoy_sfc; also has domain-wide variable "cp_area_frac"
    #use "proc" for the post-processed files with one variable per file, which is the current output of calc_imse_DPSCREAM.py
 frequency = "nhours_x1" # e.g. "5min", "1hr", etc., this is used to construct the file name pattern for searching the input files to be concatenated
 
 if(file_type=="raw"):
-    in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
+    #in_dir = (f"/pscratch/sd/k/ksa/simulation/DP-SCREAM/cases/{icase}/run")
+    in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM//{icase}/run")
+
 else:
     in_dir = (f"/pscratch/sd/w/wcmca1/DP-SCREAM/{icase}/cat_raw")
 

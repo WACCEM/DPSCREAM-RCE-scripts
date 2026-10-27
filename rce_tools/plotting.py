@@ -6,10 +6,17 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import AutoMinorLocator
 
+figdir_root = "/global/cfs/cdirs/m1867/RCE/figure"
+
 case_info = {
     "RCE02_dx1km_gpu": {
         "model": "DP-SCREAM",
         "desc": "DP EQ IC",
+        "color": "darkblue"
+    },
+    "dx1km_L600km_RCE03_gpu": {
+        "model": "DP-SCREAM",
+        "desc": "PINACLES EQ IC",
         "color": "Blue"
     },
      "RCE00_dx1km_600x600km": {

@@ -32,7 +32,7 @@ from run_metrics import run_metrics
 
 SIMULATION_TYPE = 'DP-SCREAM'  # Options: 'PINACLES', 'DP-SCREAM'
 OLR_VAR_NAME = 'LW_flux_up_at_model_top' 
-CASE_NAME = "RCE02_dx1km_gpu" # 
+CASE_NAME = "dx1km_L600km_RCE03_gpu" # 
 
 
 # SIMULATION_TYPE = 'PINACLES'  # Options: 'PINACLES', 'DP-SCREAM'
@@ -46,7 +46,7 @@ if(CASE_NAME == 'dx1km_L150km_RCE01_gpu') or (CASE_NAME == 'dx1km_L150km_RCE02_g
     date_range = '2000-01-01_to_2000-04-30'
 
 elif(CASE_NAME == 'dx1km_L600km_RCE03_gpu' ):
-    date_range = '2000-01-01_to_2000-03-01'
+    date_range = '2000-01-01_to_2000-03-15'
 
 elif(CASE_NAME == 'RCE02_dx1km_gpu' ):
     date_range = '2000-01-01_to_2000-03-15'
