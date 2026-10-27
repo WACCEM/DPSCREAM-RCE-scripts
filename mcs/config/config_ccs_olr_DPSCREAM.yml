@@ -15,6 +15,7 @@ run_matchpf : True
 run_robustmcs : True
 run_mapfeature : True
 run_speed : True
+run_regrid_mask : False
 
 # Parallel processing set up
 # run_parallel: 1 (local cluster), 2 (Dask MPI)
@@ -33,12 +34,12 @@ enddate: '20000315.0000'
 # E.g., databasename20181101.011503.nc --> yyyymodd.hhmmss
 # E.g., databasename2018-11-01_01:15:00 --> yyyy-mo-dd_hh:mm:ss
 time_format: yyyy-mo-dd_hhmm
-databasename: RCE02_dx1km_gpu.mcstrack.
+databasename: dx1km_L600km_RCE03_gpu.mcstrack.
 
 # Input files directory
-clouddata_path: /pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/mcstrack/
+clouddata_path: /pscratch/sd/w/wcmca1/DP-SCREAM/dx1km_L600km_RCE03_gpu/mcstrack/input/
 # Working directory for the tracking data
-root_path: /pscratch/sd/w/wcmca1/DP-SCREAM/RCE02_dx1km_gpu/mcstrack_output/
+root_path: /pscratch/sd/w/wcmca1/DP-SCREAM/dx1km_L600km_RCE03_gpu/mcstrack/
 # Working sub-directory names
 tracking_path_name: tracking
 stats_path_name: stats
@@ -53,7 +54,7 @@ datatimeresolution: 1  # [hour] Temporal resolution of the input data
 olr2tb: True
 olr_varname: toa_lw_up
 pcp_varname: rain_rate
-pcp_convert_factor: 3600000.  # Convert precipitation flux from [m/s] to [mm/h]
+pcp_convert_factor: 1.0  #3600000.  # Convert precipitation flux from [m/s] to [mm/h]
 clouddatasource: model
 time_dimname: time
 x_dimname: x
@@ -173,6 +174,7 @@ pcp_thresh:  1.0  # Pixels with hourly precipitation larger than this will be la
 heavy_rainrate_thresh:  8.0  # [mm/hr] Heavy rain rate threshold
 mcs_min_rainvol_thresh: 100 #old: 100x100x2, current 10x10x2  #  [km^2 mm/h] Min rain volumne threshold
 mcs_volrain_duration_thresh: 1  # [hour] Min volume rain threshold
+landfrac_thresh: 90  # [%] Land fraction threshold for PF
 
 # Define tracked feature variable names
 feature_varname: feature_number
